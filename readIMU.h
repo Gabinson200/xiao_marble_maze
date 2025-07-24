@@ -1,15 +1,15 @@
-#ifndef READIMU
-#define READIMU
+#ifndef READIMU_H
+#define READIMU_H
 
 #include <LSM6DS3.h>
 #include <Wire.h>
 
+// Avergaed roll and pitch angles returned from IMU readings
 
 void setupIMU();
 
 /**
-* @brief Create the background objects on the passed screen which are then updated with update_background
-* @param parent lv screen object on which to create the background objects 
+* @brief Updates roll and pitch angles when screen is moved 
 */
 void readIMU();
 

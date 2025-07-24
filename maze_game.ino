@@ -1,47 +1,56 @@
 #include <Arduino.h>
 #include <lvgl.h>
 #include <Wire.h>
-#include "lv_xiao_round_screen.h" // Specific display library
+#include "lv_xiao_round_screen.h"
 
 #include "readIMU.h"
+#include "maze.h"
 
-lv_obj_t * mainScreen = NULL;
-#define SCREEN_WIDTH  240
+// Screen dimensions
+#define SCREEN_WIDTH 240
 #define SCREEN_HEIGHT 240
 
+lv_obj_t * mainScreen = NULL;
 
-// LVGL draw buffer
+
+// LVGL Draw Buffer - small and statically allocated
 static lv_disp_draw_buf_t draw_buf;
-static lv_color_t buf[SCREEN_WIDTH * SCREEN_HEIGHT];
+static lv_color_t buf[SCREEN_WIDTH * 10];
 
 void setup() {
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  while (!Serial);
-  setupIMU();
+    Serial.begin(115200);
 
-  // 1) Initialize LVGL core and HALs
-  lv_init();
-  lv_xiao_disp_init();
-  Wire.begin();
+    // 1) Initialize LVGL
+    lv_init();
 
-  // 2) Create & load a main screen so layers exist
-  mainScreen = lv_obj_create(nullptr);
-  lv_obj_set_size(mainScreen,
-                  lv_disp_get_hor_res(nullptr),
-                  lv_disp_get_ver_res(nullptr));
-  lv_scr_load(mainScreen);
+    // 2) Initialize Display Driver
+    lv_xiao_disp_init();
+    //lv_disp_draw_buf_init(&draw_buf, buf, NULL, SCREEN_WIDTH * 10);
 
-   // 3) Create a full‑screen canvas
-  //canvas = lv_canvas_create(lv_scr_act());
-  //lv_canvas_set_buffer(canvas, buf, SCREEN_WIDTH, SCREEN_HEIGHT, LV_IMG_CF_TRUE_COLOR);
-  //lv_obj_center(canvas);
+    // 2) Create & load a main screen so layers exist
+    mainScreen = lv_obj_create(nullptr);
+    lv_obj_set_size(mainScreen,
+                    lv_disp_get_hor_res(nullptr),
+                    lv_disp_get_ver_res(nullptr));
+    lv_scr_load(mainScreen);
 
+    // Initialize the IMU [cite: 4]
+    Wire.begin();
+    setupIMU();
 
+    // 4) Get the main screen and set its background to black
+    lv_obj_t *mainScreen = lv_scr_act();
+    lv_obj_set_style_bg_color(mainScreen, lv_color_black(), 0);
 
-  
+    // 5) Initialize and draw the maze directly onto the screen
+    initMaze();
+    drawMaze(mainScreen);
 }
 
 void loop() {
   readIMU();
+  // updateBall(roll, pitch); 
+  // drawBall();
+  lv_timer_handler();
+  delay(5);
 }

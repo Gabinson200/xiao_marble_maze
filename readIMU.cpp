@@ -5,8 +5,8 @@ float gX, gY, gZ, aX, aY, aZ;
 const float turnThreshold = 30;
 const int numSamples = 10;
 int samplesRead = numSamples;
-
 float rollAcc, pitchAcc;
+float rollSum, pitchSum, rollAvg, pitchAvg= 0;
 
 
 void setupIMU(){
@@ -18,7 +18,6 @@ void setupIMU(){
 }
 
 void readIMU(){
-  float rollSum, pitchSum, rollAvg, pitchAvg= 0;
   // wait for significant motion
   while (samplesRead == numSamples) {
     // read the acceleration data
@@ -37,6 +36,11 @@ void readIMU(){
     if (gSum >= turnThreshold) {
       // reset the sample read count
       samplesRead = 0;
+      rollSum = 0;
+      pitchSum = 0;
+      pitchAvg = 0;
+      rollAvg = 0;
+      
       break;
     }
   }
@@ -53,6 +57,7 @@ void readIMU(){
     aX = myIMU.readFloatAccelX();
     aY = myIMU.readFloatAccelY();
     aZ = myIMU.readFloatAccelZ();
+
     // In radians → convert to degrees
     pitchAcc = atan2(-aX, sqrt(aY*aY + aZ*aZ)) * 180.0 / PI;  
 
