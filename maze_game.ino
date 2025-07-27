@@ -44,6 +44,7 @@ void setup() {
 
     // 5) Initialize and draw the maze directly onto the screen
     initMaze();
+    delay(3000); // this is just for when taking a video of generation
     drawMaze(mainScreen);
 }
 
