@@ -24,4 +24,18 @@ void updateBall(float roll, float pitch);
 // Draws (and erases previous) marble on the canvas.
 void drawBall();
 
+/**
+ * @brief Generates a circular maze using a recursive backtracking algorithm.
+ *
+ * This function initializes the maze structure with all walls present and then
+ * calls the recursive 'carveCircular' function to create paths.
+ */
+void generateCircularMaze();
+
+/**
+ * @brief Draws the generated circular maze on an LVGL parent object.
+ * @param parent The LVGL object to draw the maze on.
+ */
+void drawCircularMaze(lv_obj_t *parent);
+
 #endif // MAZE_H
