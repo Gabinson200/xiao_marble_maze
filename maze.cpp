@@ -137,9 +137,9 @@ void placeExit() {
 // =================================================================
 
 // --- Circular Maze Definitions ---
-const int NUM_RINGS = 8;
-const int SECTORS_PER_RING = 8;
-const int RING_SPACING = 14;
+const int NUM_RINGS = 10;
+const int SECTORS_PER_RING = 18;
+const int RING_SPACING = 11;
 const int CENTER_X = 120;
 const int CENTER_Y = 120;
 const int POINTS_PER_ARC = 5; // Number of segments to approximate a curve
@@ -172,7 +172,8 @@ void generateCircularMaze();
  * @brief Generates a circular maze using a recursive backtracking algorithm.
  */
 void generateCircularMaze() {
-    for (int r = 0; r < NUM_RINGS; r++) {
+    // leave extra ring room in the middle
+    for (int r = 2; r < NUM_RINGS; r++) {
         for (int s = 0; s < SECTORS_PER_RING; s++) {
             radial_walls[r][s] = true;
             circular_walls[r][s] = true;
@@ -180,8 +181,6 @@ void generateCircularMaze() {
     }
     memset(visited_circular, 0, sizeof(visited_circular));
     carveCircular(0, random(SECTORS_PER_RING));
-    // Create an exit on the outermost ring
-    //circular_walls[NUM_RINGS - 1][0] = false;
 }
 
 /**
