@@ -14,7 +14,11 @@ void setCanvas(lv_obj_t * c);
 // Call in setup() to build a new maze & reset the marble.
 void initMaze();
 
-// Draws the entire maze (walls + exit) into the canvas.
+
+/**
+* @brief draws the maze to the passed screen, by creating and drawing walls depending on the vert / horiz wall list produced by 
+* @param parent lv screen object on which to create the maze  
+*/
 void drawMaze(lv_obj_t *parent);
 
 // Updates the marble’s position & physics based on current roll/pitch.

@@ -95,6 +95,7 @@ void carve(int r, int c) {
   visited[r][c] = true;
   const int dr[4] = {-1,1,0,0}, dc[4] = {0,0,-1,1};
   int dirs[4] = {0,1,2,3};
+  // Fisher-Yates shuffle
   for (int i = 3; i > 0; i--) {
     int j = random(i+1);
     int t = dirs[i];

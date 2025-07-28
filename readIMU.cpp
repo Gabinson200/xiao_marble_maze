@@ -1,13 +1,10 @@
 #include "readIMU.h"
 //Create a instance of class LSM6DS3
 LSM6DS3 myIMU(I2C_MODE, 0x6A);    //I2C device address 0x6A
-float gX, gY, gZ, aX, aY, aZ;
 const float turnThreshold = 30;
 const int numSamples = 10;
 int samplesRead = numSamples;
-float rollAcc, pitchAcc;
-float rollSum, pitchSum, rollAvg, pitchAvg= 0;
-
+float  rollAvg, pitchAvg= 0;
 
 void setupIMU(){
   if (myIMU.begin() != 0) {
@@ -18,6 +15,10 @@ void setupIMU(){
 }
 
 void readIMU(){
+  // 6-axis readings vars
+  float gX, gY, gZ, aX, aY, aZ;
+  float rollAcc, pitchAcc, rollSum, pitchSum;
+
   // wait for significant motion
   while (samplesRead == numSamples) {
     // read the acceleration data
@@ -48,9 +49,6 @@ void readIMU(){
   // check if the all the required samples have been read since
   // the last time the significant motion was detected
   while (samplesRead < numSamples) {
-    // check if both new acceleration and gyroscope data is
-    // available
-    // read the acceleration and gyroscope data
 
     samplesRead++;
 
@@ -58,37 +56,19 @@ void readIMU(){
     aY = myIMU.readFloatAccelY();
     aZ = myIMU.readFloatAccelZ();
 
-    // In radians → convert to degrees
+    // In radians, convert to degrees
     pitchAcc = atan2(-aX, sqrt(aY*aY + aZ*aZ)) * 180.0 / PI;  
 
     // Compute raw roll in degrees (–180° to +180°)
     float rawRoll = atan2(aY, aZ) * 180.0 / PI;   
 
     // Clamp to –90°…+90°
-    float rollAcc;
     if (rawRoll > 90)      rollAcc = rawRoll - 180;
     else if (rawRoll < -90) rollAcc = rawRoll + 180;
     else                   rollAcc = rawRoll;
 
     rollSum += rollAcc;
     pitchSum += pitchAcc;
-
-
-    /*
-    Serial.print(myIMU.readFloatGyroX(), 3);
-    Serial.print(',');
-    Serial.print(myIMU.readFloatGyroY(), 3);
-    Serial.print(',');
-    Serial.print(myIMU.readFloatGyroZ(), 3);
-    Serial.println();
-
-    // Both clamped to –90°…+90°
-    Serial.print(rollAcc, 1);
-    Serial.print(',');
-    Serial.print(pitchAcc, 1);
-    Serial.println();
-    */
-    
 
     if (samplesRead == numSamples) {
       // add an empty line if it's the last sample

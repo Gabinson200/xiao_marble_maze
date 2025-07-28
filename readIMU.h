@@ -4,12 +4,14 @@
 #include <LSM6DS3.h>
 #include <Wire.h>
 
-// Avergaed roll and pitch angles returned from IMU readings
+// Averaged but not fused filters (may be changed later on if readings are too volatile)
+extern float rollAvg, pitchAvg;
 
 void setupIMU();
 
 /**
-* @brief Updates roll and pitch angles when screen is moved 
+* @brief If some rotational acceleration threshold is reached read in some samples from the accelerometer,
+* convert to angle from the normal, and average readings for mean value. Only prints / provides new values if a disturbance is sensed. 
 */
 void readIMU();
 
