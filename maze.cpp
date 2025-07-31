@@ -2,97 +2,119 @@
 #include <Arduino.h>
 #include <math.h>
 
-// Maze dimensions and storage (unchanged)
-const int COLS = 8;
-const int ROWS = 8;
-const int CELL = 20;
-bool horiz[ROWS+1][COLS];
-bool vert[ROWS][COLS+1];
-bool visited[ROWS][COLS];
 
-// Maze UI
-const int MAX_WALLS = (ROWS + 1) * COLS + ROWS * (COLS + 1);
-static lv_point_t wall_points[MAX_WALLS][2];
-int wall_count = 0;
-int offset = 40;
+RectangularMaze::RectangularMaze()
+    :wall_count(0) {
 
-// Marble and exit variables (unchanged)
-float ballX, ballY;
-float velX, velY;
-int exitR, exitC;
-uint32_t lastMs = 0;
-
-// Forward declarations (unchanged)
-void carve(int r, int c);
-void generateMaze();
-void placeExit();
-
-
-void initMaze() {
-  generateMaze();
-  placeExit();
-  ballX = CELL/2 + offset;
-  ballY = CELL/2 + offset;
-  velX  = velY = 0;
-  lastMs = millis();
+    generateMaze();
+    
+    // Initialize ball state
+    // offset of 40 is needed so that square does not go outside of round display
+    ballX = CELL_SIZE / 2.0f + 40;
+    ballY = CELL_SIZE / 2.0f + 40;
+    velX = 0.0f;
+    velY = 0.0f;
+    lastMs = millis();
 }
 
-// drawMaze function
-void drawMaze(lv_obj_t *parent) {
-  // Create a style for the white maze walls
-  static lv_style_t style_wall;
-  lv_style_init(&style_wall);
-  lv_style_set_line_width(&style_wall, 2);
-  lv_style_set_line_color(&style_wall, lv_color_white());
-  lv_style_set_line_rounded(&style_wall, true);
 
-  // Horizontal walls
-  for (int r = 0; r <= ROWS; r++) {
-    for (int c = 0; c < COLS; c++) {
-      if (horiz[r][c]) {
-         if (wall_count < MAX_WALLS) {
-          wall_points[wall_count][0] = { (lv_coord_t)(c * CELL + offset), (lv_coord_t)(r * CELL + offset) };
-          wall_points[wall_count][1] = { (lv_coord_t)((c + 1) * CELL + offset), (lv_coord_t)(r * CELL + offset) };
-          
-          lv_obj_t *wall = lv_line_create(parent);
-          lv_line_set_points(wall, wall_points[wall_count], 2);
-          lv_obj_add_style(wall, &style_wall, 0);
-          wall_count++;
-        }
-        lv_timer_handler();
-      }
+void RectangularMaze::draw(lv_obj_t* parent, bool anim) {
+
+    // This style is static, so it's initialized only once across all instances.
+    static lv_style_t style_wall;
+    static bool style_initialized = false;
+    if (!style_initialized) {
+        lv_style_init(&style_wall);
+        lv_style_set_line_width(&style_wall, 2);
+        lv_style_set_line_color(&style_wall, lv_color_white());
+        lv_style_set_line_rounded(&style_wall, true);
+        style_initialized = true;
     }
-  }
+    // remove any existing walls/exit
+    lv_obj_clean(parent);
+    wall_count = 0; // Reset for redraw
 
-  // Vertical walls 
-  for (int r = 0; r < ROWS; r++) {
-    for (int c = 0; c <= COLS; c++) {
-      if (vert[r][c]) {
-        if (wall_count < MAX_WALLS) {
-          wall_points[wall_count][0] = { (lv_coord_t)(c * CELL + offset), (lv_coord_t)(r * CELL + offset) };
-          wall_points[wall_count][1] = { (lv_coord_t)(c * CELL + offset), (lv_coord_t)((r + 1) * CELL + offset) };
+    // Draw Horizontal walls
+    for (int r = 0; r <= ROWS; ++r) {
+        for (int c = 0; c < COLS; ++c) {
+            if (horiz_walls[r][c]) {
+                if (wall_count < MAX_WALLS) {
+                    wall_points[wall_count][0] = { (lv_coord_t)(c * CELL_SIZE + offset), (lv_coord_t)(r * CELL_SIZE + offset) };
+                    wall_points[wall_count][1] = { (lv_coord_t)((c + 1) * CELL_SIZE + offset), (lv_coord_t)(r * CELL_SIZE + offset) };
 
-          lv_obj_t *wall = lv_line_create(parent);
-          lv_line_set_points(wall, wall_points[wall_count], 2);
-          lv_obj_add_style(wall, &style_wall, 0);
-          wall_count++;
+                    lv_obj_t* wall = lv_line_create(parent);
+                    lv_line_set_points(wall, wall_points[wall_count], 2);
+                    lv_obj_add_style(wall, &style_wall, 0);
+                    wall_count++;
+                    if(anim) lv_timer_handler();
+                }
+            }
         }
-        lv_timer_handler();
-      }
     }
-  }
 
-  // Draw exit cell in green
-  lv_obj_t *exit_obj = lv_obj_create(parent);
-  lv_obj_set_size(exit_obj, CELL, CELL);
-  lv_obj_set_pos(exit_obj, exitC * CELL, exitR * CELL);
-  lv_obj_set_style_bg_color(exit_obj, lv_color_make(0,255,0), 0);
-  lv_obj_set_style_border_width(exit_obj, 0, 0);
+    //  Draw Vertical walls
+    for (int r = 0; r < ROWS; ++r) {
+        for (int c = 0; c <= COLS; ++c) {
+            if (vert_walls[r][c]) {
+                if (wall_count < MAX_WALLS) {
+                    wall_points[wall_count][0] = { (lv_coord_t)(c * CELL_SIZE + offset), (lv_coord_t)(r * CELL_SIZE + offset) };
+                    wall_points[wall_count][1] = { (lv_coord_t)(c * CELL_SIZE + offset), (lv_coord_t)((r + 1) * CELL_SIZE + offset) };
+
+                    lv_obj_t* wall = lv_line_create(parent);
+                    lv_line_set_points(wall, wall_points[wall_count], 2);
+                    lv_obj_add_style(wall, &style_wall, 0);
+                    wall_count++;
+                    if(anim) lv_timer_handler();
+                }
+            }
+        }
+    }
+
+    lv_point_t exit_coord = randomPerimeterCoord();
+    // Draw Exit Cell
+    lv_obj_t* exit_obj = lv_obj_create(parent);
+    lv_obj_set_size(exit_obj, CELL_SIZE, CELL_SIZE);
+    lv_obj_set_pos(exit_obj, exit_coord.x, exit_coord.y);
+    lv_obj_set_style_bg_color(exit_obj, lv_color_make(0, 255, 0), 0);
+    lv_obj_set_style_border_width(exit_obj, 0, 0);
+
+    // Final actual draw to screen
+    lv_timer_handler();
+    
+}
+
+void RectangularMaze::generateMaze() {
+    for (int r = 0; r <= ROWS; ++r) {
+        for (int c = 0; c < COLS; ++c) {
+            horiz_walls[r][c] = true;
+        }
+    }
+    for (int r = 0; r < ROWS; ++r) {
+        for (int c = 0; c <= COLS; ++c) {
+            vert_walls[r][c] = true;
+        }
+    }
+    memset(visited_cells, 0, sizeof(visited_cells));
+    carve(random(COLS), random(ROWS)); // Start carving from top-left
+}
+
+
+lv_point_t RectangularMaze::randomPerimeterCoord(){
+    int P = 2*COLS + 2*ROWS - 4;
+    int idx = random(0, P);
+    int r, c;
+    if      (idx < COLS)        { r = 0;       c = idx;           }
+    else if ((idx -= COLS) < ROWS-2) { r = 1+idx;  c = COLS-1;      }
+    else if ((idx -= ROWS-2) < COLS) { r = ROWS-1; c = COLS-1-idx; }
+    else                           { idx -= COLS; r = ROWS-2-idx; c = 0; }
+    // return in pixels, with offset
+    return { (lv_coord_t)(c*CELL_SIZE + offset),
+             (lv_coord_t)(r*CELL_SIZE + offset) };
 }
 
 // Maze generation logic
-void carve(int r, int c) {
-  visited[r][c] = true;
+void RectangularMaze::carve(int r, int c) {
+  visited_cells[r][c] = true;
   const int dr[4] = {-1,1,0,0}, dc[4] = {0,0,-1,1};
   int dirs[4] = {0,1,2,3};
   // Fisher-Yates shuffle
@@ -102,35 +124,21 @@ void carve(int r, int c) {
     dirs[i] = dirs[j];
     dirs[j] = t;
   }
-
+  // might switch to stack implementation rather than recursive
   for (int i = 0; i < 4; i++) {
     int d = dirs[i];
     int nr = r + dr[d];
     int nc = c + dc[d];
-    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !visited[nr][nc]) {
-      if (d < 2) horiz[max(r,nr)][c] = false;
-      else if (d == 2) vert[r][c] = false;
-      else vert[r][c+1] = false;
+    if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !visited_cells[nr][nc]) {
+      if (d < 2) horiz_walls[max(r,nr)][c] = false;
+      else if (d == 2) vert_walls[r][c] = false;
+      else vert_walls[r][c+1] = false;
       carve(nr, nc);
     }
   }
 }
 
-void generateMaze() {
-  for (int r = 0; r <= ROWS; r++)
-    for (int c = 0; c < COLS; c++)
-      horiz[r][c] = true;
-  for (int r = 0; r < ROWS; r++)
-    for (int c = 0; c <= COLS; c++)
-      vert[r][c] = true;
-  memset(visited, 0, sizeof(visited));
-  carve(0,0);
-}
 
-void placeExit() {
-  exitR = ROWS - 2;
-  exitC = COLS - 2;
-}
 
 
 // =================================================================

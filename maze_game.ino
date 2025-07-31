@@ -24,6 +24,7 @@ void setup() {
 
     lv_init();
     lv_xiao_disp_init();
+    randomSeed(analogRead(A0));
 
     // Create & load a main screen so layers exist
     mainScreen = lv_obj_create(nullptr);
@@ -42,11 +43,10 @@ void setup() {
 
     // Initialize and draw the maze directly onto the screen
     if(rect_or_circ){
-      initMaze();
-      delay(3000); // this is just for when taking a video of generation
-      drawMaze(mainScreen);
+      RectangularMaze maze = RectangularMaze();
+      maze.draw(mainScreen, true);
     }else{
-      drawCircularMaze(mainScreen);
+      //drawCircularMaze(mainScreen);
     }
 }
 
