@@ -61,17 +61,6 @@ class RectangularMaze {
 
 };
 
-/**
-* @brief Create the background objects on the passed screen which are then updated with update_background
-* @param parent lv screen object on which to create the background objects 
-*/
-// Must be called once *after* you create your LVGL canvas
-// Pass the canvas object so the module can draw into it.
-void setCanvas(lv_obj_t * c);
-
-// Call in setup() to build a new maze & reset the marble.
-void initMaze();
-
 
 /**
 * @brief draws the maze to the passed screen, by creating and drawing walls depending on the vert / horiz wall list produced by 
