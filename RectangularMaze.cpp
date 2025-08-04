@@ -1,7 +1,21 @@
 #include "RectangularMaze.h"
 #include <Arduino.h>
 
-RectangularMaze::RectangularMaze() : wall_count(0) {
+RectangularMaze::RectangularMaze(int cols, int rows, int cell_size, int offset) {
+    COLS = cols;
+    ROWS = rows;
+    CELL_SIZE = cell_size;
+    OFFSET = offset;
+
+    // Resize all wall and cell tracking vectors
+    horiz_walls.resize(ROWS + 1, std::vector<bool>(COLS));
+    vert_walls.resize(ROWS, std::vector<bool>(COLS + 1));
+    visited_cells.resize(ROWS, std::vector<bool>(COLS));
+
+    // 3. Resize the LVGL point buffer
+    int MAX_WALLS = (ROWS + 1) * COLS + ROWS * (COLS + 1);
+    wall_points.resize(MAX_WALLS);
+
     // Initialize ball state
     ballX = CELL_SIZE / 2.0f + OFFSET;
     ballY = CELL_SIZE / 2.0f + OFFSET;
@@ -17,7 +31,12 @@ void RectangularMaze::generate() {
     for (int r = 0; r < ROWS; ++r) {
         for (int c = 0; c <= COLS; ++c) vert_walls[r][c] = true;
     }
-    memset(visited_cells, 0, sizeof(visited_cells));
+
+    // Clear the visited cells vector
+    for(auto& row : visited_cells) {
+        std::fill(row.begin(), row.end(), false);
+    }
+
     carve(random(COLS), random(ROWS));
 }
 
@@ -40,12 +59,12 @@ void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
     for (int r = 0; r <= ROWS; ++r) {
         for (int c = 0; c < COLS; ++c) {
             if (horiz_walls[r][c]) {
-                if (wall_count < MAX_WALLS) {
+                if (wall_count < wall_points.size()) {
                     wall_points[wall_count][0] = { (lv_coord_t)(c * CELL_SIZE + OFFSET), (lv_coord_t)(r * CELL_SIZE + OFFSET) };
                     wall_points[wall_count][1] = { (lv_coord_t)((c + 1) * CELL_SIZE + OFFSET), (lv_coord_t)(r * CELL_SIZE + OFFSET) };
 
                     lv_obj_t* wall = lv_line_create(parent);
-                    lv_line_set_points(wall, wall_points[wall_count], 2);
+                    lv_line_set_points(wall, wall_points[wall_count].data(), 2);
                     lv_obj_add_style(wall, &style_wall, 0);
                     wall_count++;
                     if(animate) lv_timer_handler();
@@ -58,12 +77,12 @@ void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
     for (int r = 0; r < ROWS; ++r) {
         for (int c = 0; c <= COLS; ++c) {
             if (vert_walls[r][c]) {
-                if (wall_count < MAX_WALLS) {
+                if (wall_count < wall_points.size()) {
                     wall_points[wall_count][0] = { (lv_coord_t)(c * CELL_SIZE + OFFSET), (lv_coord_t)(r * CELL_SIZE + OFFSET) };
                     wall_points[wall_count][1] = { (lv_coord_t)(c * CELL_SIZE + OFFSET), (lv_coord_t)((r + 1) * CELL_SIZE + OFFSET) };
 
                     lv_obj_t* wall = lv_line_create(parent);
-                    lv_line_set_points(wall, wall_points[wall_count], 2);
+                    lv_line_set_points(wall, wall_points[wall_count].data(), 2);
                     lv_obj_add_style(wall, &style_wall, 0);
                     wall_count++;
                     if(animate) lv_timer_handler();
@@ -72,13 +91,13 @@ void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
         }
     }
 
-    lv_point_t exit_coord = randomPerimeterCoord();
+    lv_point_t spawn_coord = randomPerimeterCoord();
     // Draw Exit Cell
-    lv_obj_t* exit_obj = lv_obj_create(parent);
-    lv_obj_set_size(exit_obj, CELL_SIZE, CELL_SIZE);
-    lv_obj_set_pos(exit_obj, exit_coord.x, exit_coord.y);
-    lv_obj_set_style_bg_color(exit_obj, lv_color_make(0, 255, 0), 0);
-    lv_obj_set_style_border_width(exit_obj, 0, 0);
+    lv_obj_t* ball = lv_obj_create(parent);
+    lv_obj_set_size(ball, CELL_SIZE-2, CELL_SIZE-2);
+    lv_obj_set_pos(ball, spawn_coord.x, spawn_coord.y);
+    lv_obj_set_style_bg_color(ball, lv_color_make(0, 255, 0), 0);
+    lv_obj_set_style_border_width(ball, 0, 0);
 
     // Final actual draw to screen
     lv_timer_handler();

@@ -2,25 +2,34 @@
 #define RECTANGULAR_MAZE_H
 
 #include "Maze.h"
+#include <vector>
+#include <array>
 
 class RectangularMaze : public Maze {
 public:
-    RectangularMaze();
+    /**
+     * @brief Constructor for a dynamically-sized rectangular maze.
+     * @param cols The number of columns in the maze.
+     * @param rows The number of rows in the maze.
+     * @param cell_size The size of each cell in pixels.
+     * @param offset The pixel offset from the screen edge.
+     */
+    RectangularMaze(int cols, int rows, int cell_size, int offset);
+
     virtual void generate() override;
     virtual void draw(lv_obj_t* parent, bool animate) override;
 
 private:
-    static constexpr int COLS = 8;
-    static constexpr int ROWS = 8;
-    static constexpr int CELL_SIZE = 20;
-    static constexpr int OFFSET = 40;
+    int COLS; // = 8;
+    int ROWS; //  = 8;
+    int CELL_SIZE; // = 20;
+    int OFFSET; // = 40;
 
-    bool horiz_walls[ROWS + 1][COLS];
-    bool vert_walls[ROWS][COLS + 1];
-    bool visited_cells[ROWS][COLS];
+    std::vector<std::vector<bool>> horiz_walls;
+    std::vector<std::vector<bool>> vert_walls;
+    std::vector<std::vector<bool>> visited_cells;
     
-    static constexpr int MAX_WALLS = (ROWS + 1) * COLS + ROWS * (COLS + 1);
-    lv_point_t wall_points[MAX_WALLS][2];
+    std::vector<std::array<lv_point_t, 2>> wall_points;
     int wall_count;
 
     void carve(int r, int c);

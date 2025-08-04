@@ -4,10 +4,23 @@
 #include <vector>
 
 // Initialize static members
-lv_point_t CircularMaze::point_buffer[CircularMaze::MAX_TOTAL_WALLS][CircularMaze::MAX_POINTS_PER_LINE];
-int CircularMaze::wall_buffer_idx = 0;
+//lv_point_t CircularMaze::point_buffer[CircularMaze::MAX_TOTAL_WALLS][CircularMaze::MAX_POINTS_PER_LINE];
+//int CircularMaze::wall_buffer_idx = 0;
 
-CircularMaze::CircularMaze() {
+CircularMaze::CircularMaze(int rings, int sectors, int spacing) {
+    NUM_RINGS = rings;
+    SECTORS_PER_RING = sectors;
+    RING_SPACING = spacing;
+    wall_buffer_idx = 0;
+    // 2. Resize the 2D vectors to match the new dimensions
+    radial_walls.resize(NUM_RINGS, std::vector<bool>(SECTORS_PER_RING));
+    circular_walls.resize(NUM_RINGS, std::vector<bool>(SECTORS_PER_RING));
+    visited_circular.resize(NUM_RINGS, std::vector<bool>(SECTORS_PER_RING));
+
+    // 3. Resize the LVGL point buffer
+    int max_walls = (NUM_RINGS * SECTORS_PER_RING) * 2 + 1;
+    point_buffer.resize(max_walls);
+
     // Initialize ball state for a circular maze if needed
     ballX = CENTER_X;
     ballY = CENTER_Y;
@@ -55,12 +68,12 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
                 float r1 = (r + 1) * RING_SPACING;
                 float r2 = (r + 2) * RING_SPACING;
 
-                if (wall_buffer_idx < MAX_TOTAL_WALLS) {
+                if (wall_buffer_idx < point_buffer.size()) {
                     point_buffer[wall_buffer_idx][0] = {(lv_coord_t)(CENTER_X + cos(angle) * r1), (lv_coord_t)(CENTER_Y + sin(angle) * r1)};
                     point_buffer[wall_buffer_idx][1] = {(lv_coord_t)(CENTER_X + cos(angle) * r2), (lv_coord_t)(CENTER_Y + sin(angle) * r2)};
                     
                     lv_obj_t *wall = lv_line_create(parent);
-                    lv_line_set_points(wall, point_buffer[wall_buffer_idx], 2);
+                    lv_line_set_points(wall, point_buffer[wall_buffer_idx].data(), 2);
                     lv_obj_add_style(wall, &style_wall_circular, 0);
                     wall_buffer_idx++;
                     if (animate) lv_timer_handler();
@@ -73,7 +86,7 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
     for (int r = 1; r < NUM_RINGS; r++) {
         for (int s = 0; s < SECTORS_PER_RING; s++) {
             if (circular_walls[r][s]) {
-                if (wall_buffer_idx < MAX_TOTAL_WALLS) {
+                if (wall_buffer_idx < point_buffer.size()) {
                     float radius = (r + 1) * RING_SPACING;
                     float start_angle = s * angle_step;
                     
@@ -84,7 +97,7 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
                     }
 
                     lv_obj_t *arc_wall = lv_line_create(parent);
-                    lv_line_set_points(arc_wall, point_buffer[wall_buffer_idx], POINTS_PER_ARC + 1);
+                    lv_line_set_points(arc_wall, point_buffer[wall_buffer_idx].data(), POINTS_PER_ARC + 1);
                     lv_obj_add_style(arc_wall, &style_wall_circular, 0);
                     wall_buffer_idx++;
 

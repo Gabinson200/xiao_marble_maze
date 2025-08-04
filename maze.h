@@ -10,7 +10,7 @@ public:
     // Pure virtual functions that subclasses must implement
     virtual void generate() = 0;
     virtual void draw(lv_obj_t* parent, bool animate) = 0;
-    
+    virtual void updateTime() {}
     // Common functionality 
     //virtual void updateBall(float roll, float pitch);
     //virtual void drawBall();

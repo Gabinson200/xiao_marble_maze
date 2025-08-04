@@ -2,6 +2,8 @@
 #define CIRCULAR_MAZE_H
 
 #include "Maze.h"
+#include <vector>
+#include <array>
 
 /**
  * @class CircularMaze
@@ -13,10 +15,12 @@
 class CircularMaze : public Maze {
 public:
     /**
-     * @brief Default constructor initializes ball and timing state.
-     * Walls and carving are performed in generate().
+     * @brief Constructor that accepts dynamic maze dimensions.
+     * @param rings The number of concentric rings.
+     * @param sectors The number of sectors per ring.
+     * @param spacing The pixel spacing between each ring.
      */
-    CircularMaze();
+    CircularMaze(int rings, int sectors, int spacing);
 
     /**
      * @brief Builds (carves) a new maze layout.
@@ -31,10 +35,10 @@ public:
      */
     virtual void draw(lv_obj_t* parent, bool animate) override;
 
-private:
-    static constexpr int NUM_RINGS = 9;
-    static constexpr int SECTORS_PER_RING = 12;
-    static constexpr int RING_SPACING = 13;
+protected:
+    int NUM_RINGS; // = 9;
+    int SECTORS_PER_RING; // = 12;
+    int RING_SPACING; // = 13;
     static constexpr int CENTER_X = 120;
     static constexpr int CENTER_Y = 120;
     static constexpr int POINTS_PER_ARC = 5;
@@ -42,9 +46,12 @@ private:
     int spawn_ring; /// < Index of the outermost ring (NUM_RINGS-1)
     int spawn_sector;  ///< Sector index where entrance is carved
 
-    bool radial_walls[NUM_RINGS][SECTORS_PER_RING];
-    bool circular_walls[NUM_RINGS][SECTORS_PER_RING];
-    bool visited_circular[NUM_RINGS][SECTORS_PER_RING];
+    //bool radial_walls[NUM_RINGS][SECTORS_PER_RING];
+    //bool circular_walls[NUM_RINGS][SECTORS_PER_RING];
+    //bool visited_circular[NUM_RINGS][SECTORS_PER_RING];
+    std::vector<std::vector<bool>> radial_walls;
+    std::vector<std::vector<bool>> circular_walls;
+    std::vector<std::vector<bool>> visited_circular;
 
     /**
      * @brief Recursively carve passages using recursive DFS.
@@ -66,10 +73,11 @@ private:
     lv_point_t randomSpawnCoord();
 
     // Pre-allocated buffers for LVGL line drawing (two endpoints or arc points)
-    static constexpr int MAX_TOTAL_WALLS = (NUM_RINGS * SECTORS_PER_RING) * 2 + 1;
+    //static constexpr int MAX_TOTAL_WALLS = (NUM_RINGS * SECTORS_PER_RING) * 2 + 1;
     static constexpr int MAX_POINTS_PER_LINE = POINTS_PER_ARC + 1;
-    static lv_point_t point_buffer[MAX_TOTAL_WALLS][MAX_POINTS_PER_LINE];
-    static int wall_buffer_idx; ///< Next free index in point_buffer
+    std::vector<std::array<lv_point_t, MAX_POINTS_PER_LINE>> point_buffer;
+    //static lv_point_t point_buffer[MAX_TOTAL_WALLS][MAX_POINTS_PER_LINE];
+    int wall_buffer_idx; ///< Next free index in point_buffer
 };
 
 #endif // CIRCULAR_MAZE_H
