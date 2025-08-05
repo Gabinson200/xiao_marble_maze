@@ -212,3 +212,58 @@ lv_point_t CircularMaze::randomPerimeterCoord() {
 
     return {x, y};
 }
+
+void CircularMaze::handleCollisions(Ball& ball) {
+    float ball_x = ball.getX();
+    float ball_y = ball.getY();
+    float ball_r = ball.getRadius();
+
+    // 1. Convert ball's Cartesian coordinates to polar coordinates
+    float dx = ball_x - CENTER_X;
+    float dy = ball_y - CENTER_Y;
+    float angle = atan2(dy, dx);
+    float radius = sqrt(dx * dx + dy * dy);
+
+    // 2. Determine the ball's current ring and sector
+    int ring = radius / RING_SPACING;
+    if (ring >= NUM_RINGS) ring = NUM_RINGS - 1;
+
+    float sector_float = (angle / (2 * M_PI)) * SECTORS_PER_RING;
+    if (sector_float < 0) sector_float += SECTORS_PER_RING;
+    int sector = (int)sector_float;
+
+    // A simple but effective collision response: reverse and dampen velocity
+    auto bounce = [&ball]() {
+        ball.setVelocityX(-ball.getVelocityX() * 0.5f);
+        ball.setVelocityY(-ball.getVelocityY() * 0.5f);
+    };
+
+    // 3. Check for collisions with surrounding walls
+
+    // Inner circular wall
+    if (ring > 0 && circular_walls[ring - 1][sector] && (radius - ball_r < ring * RING_SPACING)) {
+        ball.setX(CENTER_X + (ring * RING_SPACING + ball_r) * cos(angle));
+        ball.setY(CENTER_Y + (ring * RING_SPACING + ball_r) * sin(angle));
+        bounce();
+    }
+    // Outer circular wall
+    if (circular_walls[ring][sector] && (radius + ball_r > (ring + 1) * RING_SPACING)) {
+        ball.setX(CENTER_X + ((ring + 1) * RING_SPACING - ball_r) * cos(angle));
+        ball.setY(CENTER_Y + ((ring + 1) * RING_SPACING - ball_r) * sin(angle));
+        bounce();
+    }
+
+    // Radial walls (spokes)
+    float sector_angle_start = (sector * 2 * M_PI) / SECTORS_PER_RING;
+    float sector_angle_end = ((sector + 1) * 2 * M_PI) / SECTORS_PER_RING;
+
+    // Counter-clockwise wall
+    if (radial_walls[ring][sector] && (angle < sector_angle_start)) {
+        bounce();
+    }
+    // Clockwise wall
+    int next_sector = (sector - 1 + SECTORS_PER_RING) % SECTORS_PER_RING;
+    if (radial_walls[ring][next_sector] && (angle > sector_angle_end)) {
+        bounce();
+    }
+}

@@ -6,6 +6,7 @@
 #include "CircularMaze.h"
 #include "I2C_BM8563.h"
 #include "MazeClock.h"
+#include "Ball.h"
 
 // Screen dimensions
 #define SCREEN_WIDTH 240
@@ -20,6 +21,7 @@ uint32_t last_time_update = 0;
 
 Maze* maze = nullptr; // Base class pointer
 IMU imu;
+Ball* ball = nullptr; 
 
 void setup() {
     Serial.begin(115200);
@@ -41,7 +43,7 @@ void setup() {
     imu.begin();
 
     // Choose which maze to create
-    bool create_rectangular_maze = false;
+    bool create_rectangular_maze = true;
     if (create_rectangular_maze) {
         maze = new RectangularMaze(8, 8, 20, 40);
     } else {
@@ -54,6 +56,8 @@ void setup() {
         maze->generate();
         maze->draw(mainScreen, true); // Animate the drawing
     }
+
+    ball = new Ball(mainScreen, 120, 120);
 }
 
 void loop() {
@@ -72,10 +76,20 @@ void loop() {
         imu.getRollAndPitch(roll, pitch);
         
         // Update ball position based on IMU data
-        if (maze) {
-            // maze->updateBall(roll, pitch);
-            // maze->drawBall();
+        if (ball) {
+            ball->updatePhysics(roll, pitch);
         }
+    }
+
+    // The maze handles collisions, which may change the ball's velocity
+    if (maze && ball) {
+        maze->handleCollisions(*ball);
+    }
+
+    // The ball moves based on its final velocity
+    if (ball) {
+        ball->move();
+        ball->draw(); // Update the ball's position on screen
     }
 
     lv_timer_handler();

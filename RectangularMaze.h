@@ -4,6 +4,7 @@
 #include "Maze.h"
 #include <vector>
 #include <array>
+#include "Ball.h"
 
 class RectangularMaze : public Maze {
 public:
@@ -18,6 +19,8 @@ public:
 
     virtual void generate() override;
     virtual void draw(lv_obj_t* parent, bool animate) override;
+
+    virtual void handleCollisions(Ball& ball) override;
 
 private:
     int COLS; // = 8;

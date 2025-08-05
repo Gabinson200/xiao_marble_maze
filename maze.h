@@ -3,6 +3,8 @@
 
 #include <lvgl.h>
 
+class Ball; // have to forward declare ball class here
+
 class Maze {
 public:
     virtual ~Maze() {}
@@ -11,9 +13,8 @@ public:
     virtual void generate() = 0;
     virtual void draw(lv_obj_t* parent, bool animate) = 0;
     virtual void updateTime() {}
-    // Common functionality 
-    //virtual void updateBall(float roll, float pitch);
-    //virtual void drawBall();
+
+    virtual void handleCollisions(Ball& ball) = 0;
 
 protected:
     float ballX, ballY;

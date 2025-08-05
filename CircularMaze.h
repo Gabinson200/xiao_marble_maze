@@ -4,6 +4,8 @@
 #include "Maze.h"
 #include <vector>
 #include <array>
+#include "Ball.h"
+
 
 /**
  * @class CircularMaze
@@ -34,6 +36,8 @@ public:
      * @param animate If true, renders with a brief pause per wall.
      */
     virtual void draw(lv_obj_t* parent, bool animate) override;
+
+    virtual void handleCollisions(Ball& ball) override;
 
 protected:
     int NUM_RINGS; // = 9;

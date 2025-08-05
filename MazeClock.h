@@ -6,6 +6,7 @@
 #include "CircularMaze.h" // Include the parent class
 #include <vector>
 #include <array>
+#include "Ball.h"
 
 // MazeClock inherits from CircularMaze
 class MazeClock : public CircularMaze {
