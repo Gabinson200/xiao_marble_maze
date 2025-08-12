@@ -16,6 +16,8 @@ public:
 
     virtual void handleCollisions(Ball& ball) = 0;
 
+    bool debugMode = true;
+
 protected:
     float ballX, ballY;
     float velX, velY;

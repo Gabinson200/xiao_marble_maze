@@ -27,6 +27,10 @@ CircularMaze::CircularMaze(int rings, int sectors, int spacing) {
     velX = 0.0f;
     velY = 0.0f;
     lastMs = millis();
+
+    if(debugMode){
+      initDebugStyles();
+    }
 }
 
 void CircularMaze::generate() {
@@ -48,6 +52,7 @@ void CircularMaze::generate() {
 }
 
 void CircularMaze::draw(lv_obj_t* parent, bool animate) {
+    _drawParent = parent;
     generate();
     wall_buffer_idx = 0; // Reset buffer index each time we redraw
 
@@ -213,57 +218,134 @@ lv_point_t CircularMaze::randomPerimeterCoord() {
     return {x, y};
 }
 
-void CircularMaze::handleCollisions(Ball& ball) {
-    float ball_x = ball.getX();
-    float ball_y = ball.getY();
-    float ball_r = ball.getRadius();
 
-    // 1. Convert ball's Cartesian coordinates to polar coordinates
-    float dx = ball_x - CENTER_X;
-    float dy = ball_y - CENTER_Y;
-    float angle = atan2(dy, dx);
-    float radius = sqrt(dx * dx + dy * dy);
+// in CircularMaze.cpp, in your constructor after lv_init
+void CircularMaze::initDebugStyles() {
+  lv_style_init(&_dbgStyleTest);
+  lv_style_set_line_width(&_dbgStyleTest, 2);
+  lv_style_set_line_color(&_dbgStyleTest, lv_color_make(122, 122, 0));
+  lv_style_set_line_rounded(&_dbgStyleTest, true);
 
-    // 2. Determine the ball's current ring and sector
-    int ring = radius / RING_SPACING;
-    if (ring >= NUM_RINGS) ring = NUM_RINGS - 1;
+  lv_style_init(&_dbgStyleHit);
+  lv_style_set_line_width(&_dbgStyleHit, 2);
+  lv_style_set_line_color(&_dbgStyleHit, lv_color_make(255, 0, 0));
+  lv_style_set_line_rounded(&_dbgStyleHit, true);
 
-    float sector_float = (angle / (2 * M_PI)) * SECTORS_PER_RING;
-    if (sector_float < 0) sector_float += SECTORS_PER_RING;
-    int sector = (int)sector_float;
-
-    // A simple but effective collision response: reverse and dampen velocity
-    auto bounce = [&ball]() {
-        ball.setVelocityX(-ball.getVelocityX() * 0.5f);
-        ball.setVelocityY(-ball.getVelocityY() * 0.5f);
-    };
-
-    // 3. Check for collisions with surrounding walls
-
-    // Inner circular wall
-    if (ring > 0 && circular_walls[ring - 1][sector] && (radius - ball_r < ring * RING_SPACING)) {
-        ball.setX(CENTER_X + (ring * RING_SPACING + ball_r) * cos(angle));
-        ball.setY(CENTER_Y + (ring * RING_SPACING + ball_r) * sin(angle));
-        bounce();
-    }
-    // Outer circular wall
-    if (circular_walls[ring][sector] && (radius + ball_r > (ring + 1) * RING_SPACING)) {
-        ball.setX(CENTER_X + ((ring + 1) * RING_SPACING - ball_r) * cos(angle));
-        ball.setY(CENTER_Y + ((ring + 1) * RING_SPACING - ball_r) * sin(angle));
-        bounce();
-    }
-
-    // Radial walls (spokes)
-    float sector_angle_start = (sector * 2 * M_PI) / SECTORS_PER_RING;
-    float sector_angle_end = ((sector + 1) * 2 * M_PI) / SECTORS_PER_RING;
-
-    // Counter-clockwise wall
-    if (radial_walls[ring][sector] && (angle < sector_angle_start)) {
-        bounce();
-    }
-    // Clockwise wall
-    int next_sector = (sector - 1 + SECTORS_PER_RING) % SECTORS_PER_RING;
-    if (radial_walls[ring][next_sector] && (angle > sector_angle_end)) {
-        bounce();
-    }
+  // Create a label in the top-left
+  //_dbgLabel = lv_label_create(lv_scr_act());
+  //lv_obj_set_pos(_dbgLabel, 80,40);
+  if(!_dbgLabel) {
+    _dbgLabel = lv_label_create(_drawParent);
+    lv_obj_set_pos(_dbgLabel, 80,160);
+  }
+  lv_label_set_text(_dbgLabel, "");
+  lv_obj_move_foreground(_dbgLabel);
 }
+
+
+void CircularMaze::handleCollisions(Ball &ball) {
+  // center/radius
+  const float cx = ball.getX();
+  const float cy = ball.getY();
+  const float br = ball.getRadius();
+
+  // polar
+  const float dx = cx - CENTER_X;
+  const float dy = cy - CENTER_Y;
+  float r = sqrtf(dx*dx + dy*dy);
+  if (r <= 0.0001f) return;
+
+  float a = atan2f(dy, dx);
+  if (a < 0) a += 2.0f * M_PI;
+
+  // which cell am I in?
+  const float step = (2.0f * M_PI) / SECTORS_PER_RING;
+  int ring   = (int)floorf(r / RING_SPACING);
+  if (ring < 0) ring = 0;
+  if (ring > NUM_RINGS - 1) ring = NUM_RINGS - 1;
+
+  int sector = (int)floorf(a / step);
+  if (sector < 0) sector = 0;
+  if (sector > SECTORS_PER_RING - 1) sector = SECTORS_PER_RING - 1;
+
+  // (optional) show where we think we are
+  if (_dbgLabel) {
+    char buf[48];
+    snprintf(buf, sizeof(buf), "ring=%d sec=%d r=%.1f a=%.2f", ring, sector, r, a);
+    lv_label_set_text(_dbgLabel, buf);
+  }
+
+  auto angdiff = [](float u, float v) {
+    float d = fmodf(u - v + M_PI, 2.0f*M_PI);
+    if (d < 0) d += 2.0f*M_PI;
+    return fabsf(d - M_PI);
+  };
+
+  auto drawSeg = [&](lv_point_t p0, lv_point_t p1, bool hit){
+    lv_point_t pts[2] = { p0, p1 };
+    lv_obj_t* ln = lv_line_create(_drawParent);
+    lv_line_set_points(ln, pts, 2);
+    lv_obj_add_style(ln, hit ? &_dbgStyleHit : &_dbgStyleTest, 0);
+    lv_obj_move_foreground(ln);
+  };
+
+  // ----- ARCS (rings) -----
+  // inner arc at radius = ring*RING_SPACING belongs to circular_walls[ring-1][sector]
+  if (ring > 0 && circular_walls[ring-1][sector]) {
+    float arcR = ring * RING_SPACING;
+    bool hit = fabsf(r - arcR) <= br;
+    // small visual segment around current angle
+    lv_point_t p0{ (lv_coord_t)(CENTER_X + arcR*cosf(a - 0.20f)),
+                   (lv_coord_t)(CENTER_Y + arcR*sinf(a - 0.20f)) };
+    lv_point_t p1{ (lv_coord_t)(CENTER_X + arcR*cosf(a + 0.20f)),
+                   (lv_coord_t)(CENTER_Y + arcR*sinf(a + 0.20f)) };
+    drawSeg(p0, p1, hit);
+  }
+
+  // outer arc at radius = (ring+1)*RING_SPACING belongs to circular_walls[ring][sector]
+  if (ring < NUM_RINGS - 1 && circular_walls[ring][sector]) {
+    float arcR = (ring + 1) * RING_SPACING;
+    bool hit = fabsf(r - arcR) <= br;
+    lv_point_t p0{ (lv_coord_t)(CENTER_X + arcR*cosf(a - 0.20f)),
+                   (lv_coord_t)(CENTER_Y + arcR*sinf(a - 0.20f)) };
+    lv_point_t p1{ (lv_coord_t)(CENTER_X + arcR*cosf(a + 0.20f)),
+                   (lv_coord_t)(CENTER_Y + arcR*sinf(a + 0.20f)) };
+    drawSeg(p0, p1, hit);
+  }
+
+  // ----- SPOKES (radials) -----
+  // these segments bound the current annulus: [ring*spacing, (ring+1)*spacing]
+  float rInner = ring * RING_SPACING;
+  float rOuter = (ring + 1) * RING_SPACING;
+
+  // CCW spoke lies at angle = sector*step, lives in radial_walls[ring-1][sector]
+  if (ring > 0 && radial_walls[ring - 1][sector]) {
+    float spokeA = sector * step;
+    float dA = angdiff(a, spokeA);
+    float perp = fabsf(r * sinf(dA));                 // perpendicular dist to spoke
+    bool insideSpan = (r >= rInner - br) && (r <= rOuter + br);
+    bool hit = (perp <= br) && insideSpan;
+
+    lv_point_t p0{ (lv_coord_t)(CENTER_X + (rInner)*cosf(spokeA)),
+                   (lv_coord_t)(CENTER_Y + (rInner)*sinf(spokeA)) };
+    lv_point_t p1{ (lv_coord_t)(CENTER_X + (rOuter)*cosf(spokeA)),
+                   (lv_coord_t)(CENTER_Y + (rOuter)*sinf(spokeA)) };
+    drawSeg(p0, p1, hit);
+  }
+
+  // CW spoke at angle = (sector+1)*step, lives in radial_walls[ring-1][(sector+1)%]
+  if (ring > 0 && radial_walls[ring - 1][(sector + 1) % SECTORS_PER_RING]) {
+    float spokeA = fmodf((sector + 1) * step, 2.0f * M_PI);
+    float dA = angdiff(a, spokeA);
+    float perp = fabsf(r * sinf(dA));
+    bool insideSpan = (r >= rInner - br) && (r <= rOuter + br);
+    bool hit = (perp <= br) && insideSpan;
+
+    lv_point_t p0{ (lv_coord_t)(CENTER_X + (rInner)*cosf(spokeA)),
+                   (lv_coord_t)(CENTER_Y + (rInner)*sinf(spokeA)) };
+    lv_point_t p1{ (lv_coord_t)(CENTER_X + (rOuter)*cosf(spokeA)),
+                   (lv_coord_t)(CENTER_Y + (rOuter)*sinf(spokeA)) };
+    drawSeg(p0, p1, hit);
+  }
+}
+

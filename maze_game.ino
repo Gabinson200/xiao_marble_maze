@@ -43,12 +43,13 @@ void setup() {
     imu.begin();
 
     // Choose which maze to create
-    bool create_rectangular_maze = true;
+    bool create_rectangular_maze = false;
     if (create_rectangular_maze) {
         maze = new RectangularMaze(8, 8, 20, 40);
     } else {
-        //maze = new CircularMaze(9, 12, 13);
-        maze = new MazeClock(6, 12);
+        maze = new CircularMaze(4, 4, 24);
+        maze->debugMode = false;
+        //maze = new MazeClock(6, 12);
     }
 
     // Generate and draw the maze

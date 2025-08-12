@@ -151,22 +151,22 @@ void RectangularMaze::handleCollisions(Ball& ball) {
     int row = (ball_y - OFFSET) / CELL_SIZE;
 
     // Check for collision with the four surrounding walls
-    // Top wall
+    // Left wall
     if (vert_walls[row][col] && (ball_x - ball_r < col * CELL_SIZE + OFFSET)) {
         ball.setX(col * CELL_SIZE + OFFSET + ball_r);
         ball.setVelocityX(-ball.getVelocityX() * 0.25f); // Reverse velocity and add bounce damping
     }
-    // Bottom wall
+    // Right wall
     if (vert_walls[row][col + 1] && (ball_x + ball_r > (col + 1) * CELL_SIZE + OFFSET)) {
         ball.setX((col + 1) * CELL_SIZE + OFFSET - ball_r);
         ball.setVelocityX(-ball.getVelocityX() * 0.25f);
     }
-    // Left wall
+    // Top wall
     if (horiz_walls[row][col] && (ball_y - ball_r < row * CELL_SIZE + OFFSET)) {
         ball.setY(row * CELL_SIZE + OFFSET + ball_r);
         ball.setVelocityY(-ball.getVelocityY() * 0.25f);
     }
-    // Right wall
+    // Bottom wall
     if (horiz_walls[row + 1][col] && (ball_y + ball_r > (row + 1) * CELL_SIZE + OFFSET)) {
         ball.setY((row + 1) * CELL_SIZE + OFFSET - ball_r);
         ball.setVelocityY(-ball.getVelocityY() * 0.25f);

@@ -16,6 +16,8 @@
  */
 class CircularMaze : public Maze {
 public:
+
+    //bool debugMode = true;
     /**
      * @brief Constructor that accepts dynamic maze dimensions.
      * @param rings The number of concentric rings.
@@ -76,12 +78,20 @@ protected:
      */
     lv_point_t randomSpawnCoord();
 
+    void initDebugStyles();
+
     // Pre-allocated buffers for LVGL line drawing (two endpoints or arc points)
     //static constexpr int MAX_TOTAL_WALLS = (NUM_RINGS * SECTORS_PER_RING) * 2 + 1;
     static constexpr int MAX_POINTS_PER_LINE = POINTS_PER_ARC + 1;
     std::vector<std::array<lv_point_t, MAX_POINTS_PER_LINE>> point_buffer;
     //static lv_point_t point_buffer[MAX_TOTAL_WALLS][MAX_POINTS_PER_LINE];
     int wall_buffer_idx; ///< Next free index in point_buffer
+
+    // LVGL debug objects:
+    lv_style_t _dbgStyleTest, _dbgStyleHit;
+    lv_obj_t*  _dbgLabel = nullptr;
+    lv_obj_t* _drawParent = nullptr;
+  
 };
 
 #endif // CIRCULAR_MAZE_H

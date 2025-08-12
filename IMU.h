@@ -6,7 +6,7 @@
 
 class IMU {
 public:
-    IMU(float threshold = 30.0f, int samples = 10);
+    IMU(float threshold = 5.0f, int samples = 10);
     bool begin();
     bool read();
     void getRollAndPitch(float& roll, float& pitch) const;
