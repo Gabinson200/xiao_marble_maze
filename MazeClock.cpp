@@ -74,20 +74,6 @@ void MazeClock::draw(lv_obj_t* parent, bool animate) {
         }
     }
 
-    // Draw the ball (green circle)
-    lv_point_t spawn_coord = randomSpawnCoord();
-    lv_obj_t* ball = lv_obj_create(parent);
-    lv_obj_set_size(ball, RING_SPACING-2, RING_SPACING-2);
-    lv_obj_set_pos(ball,
-      spawn_coord.x - (RING_SPACING-2)/2,
-      spawn_coord.y - (RING_SPACING-2)/2
-    );
-    lv_obj_set_style_bg_color(ball, lv_color_make(0, 255, 0), 0);
-    lv_obj_set_style_border_width(ball, 0, 0);
-
-    ballX = spawn_coord.x - (RING_SPACING-2)/2;
-    ballY = spawn_coord.y - (RING_SPACING-2)/2;
-
     // Clock LVGL
     I2C_BM8563_TimeTypeDef timeStruct;
     rtc.getTime(&timeStruct);

@@ -15,14 +15,9 @@ RectangularMaze::RectangularMaze(int cols, int rows, int cell_size, int offset) 
     // 3. Resize the LVGL point buffer
     int MAX_WALLS = (ROWS + 1) * COLS + ROWS * (COLS + 1);
     wall_points.resize(MAX_WALLS);
-
-    // Initialize ball state
-    ballX = CELL_SIZE / 2.0f + OFFSET;
-    ballY = CELL_SIZE / 2.0f + OFFSET;
-    velX = 0.0f;
-    velY = 0.0f;
-    lastMs = millis();
 }
+
+
 
 void RectangularMaze::generate() {
     for (int r = 0; r <= ROWS; ++r) {
@@ -38,7 +33,10 @@ void RectangularMaze::generate() {
     }
 
     carve(random(COLS), random(ROWS));
+    placeExitAndSpawn();
 }
+
+
 
 void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
     // This style is static, so it's initialized only once across all instances.
@@ -91,20 +89,23 @@ void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
         }
     }
 
-    lv_point_t spawn_coord = randomPerimeterCoord();
-    // Draw Exit Cell
-    lv_obj_t* ball = lv_obj_create(parent);
-    lv_obj_set_size(ball, CELL_SIZE-2, CELL_SIZE-2);
-    lv_obj_set_pos(ball, spawn_coord.x, spawn_coord.y);
-    lv_obj_set_style_bg_color(ball, lv_color_make(0, 255, 0), 0);
-    lv_obj_set_style_border_width(ball, 0, 0);
+    // Draw Exit Cell (red)
+    lv_obj_t* exitObj = lv_obj_create(parent);
+    lv_obj_set_size(exitObj, CELL_SIZE-2, CELL_SIZE-2);
+    lv_obj_set_pos(exitObj, exit_px.x, exit_px.y);
+    lv_obj_set_style_bg_color(exitObj, lv_color_make(255, 0, 0), 0);
+    lv_obj_set_style_border_width(exitObj, 0, 0);
+    lv_obj_set_style_radius(exitObj, 0, 0); // makes it square
+    // place the ball on the direct opposite side of the maze where the exit is placed.
 
     // Final actual draw to screen
     lv_timer_handler();
 }
 
+
+
 void RectangularMaze::carve(int r, int c) {
-   visited_cells[r][c] = true;
+  visited_cells[r][c] = true;
   const int dr[4] = {-1,1,0,0}, dc[4] = {0,0,-1,1};
   int dirs[4] = {0,1,2,3};
   // Fisher-Yates shuffle
@@ -128,6 +129,8 @@ void RectangularMaze::carve(int r, int c) {
   }
 }
 
+
+
 lv_point_t RectangularMaze::randomPerimeterCoord() {
     int P = 2*COLS + 2*ROWS - 4;
     int idx = random(0, P);
@@ -141,20 +144,47 @@ lv_point_t RectangularMaze::randomPerimeterCoord() {
              (lv_coord_t)(r*CELL_SIZE + OFFSET) };
 }
 
+
+void RectangularMaze::placeExitAndSpawn() {
+    // Pick a random side & cell on that side
+    int side = random(4); // 0=TOP,1=RIGHT,2=BOTTOM,3=LEFT
+    if (side == 0) { exit_r = 0;        exit_c = random(COLS);}
+    if (side == 1) { exit_r = random(ROWS); exit_c = COLS-1;}
+    if (side == 2) { exit_r = ROWS-1;   exit_c = random(COLS);}
+    if (side == 3) { exit_r = random(ROWS); exit_c = 0;}
+
+    // Opposite corner for spawn (mirror across center)
+    spawn_r = (ROWS-1) - exit_r;
+    spawn_c = (COLS-1) - exit_c;
+
+    // Pixel coords
+    exit_px = { (lv_coord_t)(exit_c*CELL_SIZE + OFFSET),
+                (lv_coord_t)(exit_r*CELL_SIZE + OFFSET) };
+
+    ball_spawn_px = { (lv_coord_t)(spawn_c*CELL_SIZE + OFFSET + CELL_SIZE/2),
+                      (lv_coord_t)(spawn_r*CELL_SIZE + OFFSET + CELL_SIZE/2) };
+}
+
+
+
 void RectangularMaze::handleCollisions(Ball& ball) {
     float ball_x = ball.getX();
     float ball_y = ball.getY();
     float ball_r = ball.getRadius();
 
-    // Convert ball's pixel coordinates to maze grid coordinates
-    int col = (ball_x - OFFSET) / CELL_SIZE;
-    int row = (ball_y - OFFSET) / CELL_SIZE;
+    int col = (int)((ball_x - OFFSET) / CELL_SIZE);
+    int row = (int)((ball_y - OFFSET) / CELL_SIZE);
 
-    // Check for collision with the four surrounding walls
+    // Clamp to the playable grid
+    if (col < 0) col = 0;
+    if (col > COLS - 1) col = COLS - 1;
+    if (row < 0) row = 0;
+    if (row > ROWS - 1) row = ROWS - 1;
+
     // Left wall
     if (vert_walls[row][col] && (ball_x - ball_r < col * CELL_SIZE + OFFSET)) {
         ball.setX(col * CELL_SIZE + OFFSET + ball_r);
-        ball.setVelocityX(-ball.getVelocityX() * 0.25f); // Reverse velocity and add bounce damping
+        ball.setVelocityX(-ball.getVelocityX() * 0.25f);
     }
     // Right wall
     if (vert_walls[row][col + 1] && (ball_x + ball_r > (col + 1) * CELL_SIZE + OFFSET)) {
@@ -170,5 +200,30 @@ void RectangularMaze::handleCollisions(Ball& ball) {
     if (horiz_walls[row + 1][col] && (ball_y + ball_r > (row + 1) * CELL_SIZE + OFFSET)) {
         ball.setY((row + 1) * CELL_SIZE + OFFSET - ball_r);
         ball.setVelocityY(-ball.getVelocityY() * 0.25f);
+    }
+}
+
+
+
+void RectangularMaze::stepBallWithCollisions(Ball& ball,
+                                             float max_step_px,
+                                             uint8_t max_substeps) {
+    float dx, dy;
+    if (!ball.consumeDelta(dx, dy)) return; // no motion this frame
+
+    // Choose a safe step length: default to half the radius
+    if (max_step_px <= 0.0f) max_step_px = ball.getRadius() * 0.5f;
+
+    float max_axis = fabsf(dx) > fabsf(dy) ? fabsf(dx) : fabsf(dy);
+    int steps = (int)ceilf(max_axis / max_step_px);
+    if (steps < 1) steps = 1;
+    if ((uint8_t)steps > max_substeps) steps = max_substeps;
+
+    float sx = dx / steps;
+    float sy = dy / steps;
+
+    for (int i = 0; i < steps; ++i) {
+        ball.translate(sx, sy);
+        handleCollisions(ball);  // clamp/reflect if we touched any wall
     }
 }

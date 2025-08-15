@@ -17,7 +17,6 @@
 class CircularMaze : public Maze {
 public:
 
-    //bool debugMode = true;
     /**
      * @brief Constructor that accepts dynamic maze dimensions.
      * @param rings The number of concentric rings.
@@ -39,7 +38,16 @@ public:
      */
     virtual void draw(lv_obj_t* parent, bool animate) override;
 
+    lv_point_t getBallSpawnPixel() const override { return ball_spawn_px; }
+    lv_point_t getExitPixel() const override { return exit_px; }
+
     virtual void handleCollisions(Ball& ball) override;
+
+    virtual void stepBallWithCollisions(Ball& ball,
+                                    float max_step_px = -1.0f,
+                                    uint8_t max_substeps = 32) override;
+
+    
 
 protected:
     int NUM_RINGS; // = 9;
@@ -52,12 +60,14 @@ protected:
     int spawn_ring; /// < Index of the outermost ring (NUM_RINGS-1)
     int spawn_sector;  ///< Sector index where entrance is carved
 
-    //bool radial_walls[NUM_RINGS][SECTORS_PER_RING];
-    //bool circular_walls[NUM_RINGS][SECTORS_PER_RING];
-    //bool visited_circular[NUM_RINGS][SECTORS_PER_RING];
     std::vector<std::vector<bool>> radial_walls;
     std::vector<std::vector<bool>> circular_walls;
     std::vector<std::vector<bool>> visited_circular;
+
+    // Exit spawn coord vars
+    int exit_sector = 0;
+    lv_point_t exit_px = {0,0};
+    lv_point_t ball_spawn_px = {CENTER_X, CENTER_Y};
 
     /**
      * @brief Recursively carve passages using recursive DFS.
@@ -71,6 +81,8 @@ protected:
      * @return Pixel coordinates on the perimeter.
      */
     lv_point_t randomPerimeterCoord();
+
+    void pickExitAndSpawnOpposite();
 
     /**
      * @brief Choose a random start coordinate among outer-ring openings.

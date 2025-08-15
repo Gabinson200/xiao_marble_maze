@@ -7,43 +7,65 @@
 
 class Ball {
 public:
-    // Constructor to create the ball's visual object and set its initial state
-    Ball(lv_obj_t* parent, float start_x, float start_y);
+    /**
+     * @brief Constructs a new Ball object.
+     * @param parent The parent LVGL object to draw the ball on.
+     * @param startX The initial X coordinate of the ball's center.
+     * @param startY The initial Y coordinate of the ball's center.
+     * @param radius The radius of the ball.
+     */
+    Ball(lv_obj_t* parent, float start_x, float start_y, float radius);
 
-    // Applies forces from the IMU to change the ball's velocity
+    /**
+     * @brief Applies forces from the IMU to update the ball's velocity.
+     * @param roll The roll angle (tilt) in degrees.
+     * @param pitch The pitch angle (tilt) in degrees.
+     */
     void updatePhysics(float roll, float pitch);
     
-    // Updates the ball's internal x/y coordinates based on its velocity
-    void move();
+    /**
+     * @brief Computes change in x and y dir of ball and returns true if 
+     * non zero, used for collision checking
+     * @param dx Change in the x direction.
+     * @param dy Change in the y direction.
+     */
+    bool consumeDelta(float& dx, float& dy);
+
+    /**
+     * @brief Actually moves ball by dx, dy
+     * @param dx Change in the x direction.
+     * @param dy Change in the y direction.
+     */
+    void translate(float dx, float dy);
 
     // Updates the on-screen LVGL object's position to match the internal coordinates
     void draw();
     
-    // --- Getters and Setters for the Maze to use ---
-    float getX() const { return m_x; }
-    float getY() const { return m_y; }
-    void setX(float x) { m_x = x; }
-    void setY(float y) { m_y = y; }
+    // Getters and Setters for the Maze to use
+    float getX() const { return x; }
+    float getY() const { return y; }
+    void setX(float nx) { x = nx; }
+    void setY(float ny) { y = ny; }
 
-    float getVelocityX() const { return m_velocity_x; }
-    float getVelocityY() const { return m_velocity_y; }
-    void setVelocityX(float vx) { m_velocity_x = vx; }
-    void setVelocityY(float vy) { m_velocity_y = vy; }
-    
-    float getRadius() const { return m_radius; }
+    float getVelocityX() const { return velocity_x; }
+    float getVelocityY() const { return velocity_y; }
+    void setVelocityX(float vx) { velocity_x = vx; }
+    void setVelocityY(float vy) { velocity_y = vy; }
+    float getRadius() const { return radius; }
+    uint32_t getLastUpdateMs() const { return last_update_ms; }
 
 private:
-    lv_obj_t* m_obj; // Pointer to the LVGL object for the ball
+    lv_obj_t* obj; // Pointer to the LVGL object for the ball
 
     // State variables
-    float m_x;
-    float m_y;
-    float m_velocity_x;
-    float m_velocity_y;
+    float x;
+    float y;
+    float velocity_x;
+    float velocity_y;
+    uint32_t last_update_ms;
     
     // Properties
-    float m_radius;
-    uint32_t m_last_update_ms;
+    float radius = 5.0f;
 };
 
 #endif // BALL_H
