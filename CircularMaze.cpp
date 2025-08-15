@@ -36,6 +36,10 @@ void CircularMaze::generate() {
             visited_circular[r][s] = false;
         }
     }
+
+    for (int s = 0; s < SECTORS_PER_RING; ++s) {
+        visited_circular[0][s] = true;  // hub is not a cell
+    }
     //memset(visited_circular, 0, sizeof(visited_circular));
     spawn_ring = NUM_RINGS - 1;
     spawn_sector = random(0, SECTORS_PER_RING);
@@ -95,24 +99,28 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
 
     const float angle_step = 2 * M_PI / SECTORS_PER_RING;
 
-    // Draw Radial Walls (Spokes)
-    for (int r = 1; r < NUM_RINGS; r++) {
-        for (int s = 0; s < SECTORS_PER_RING; s++) {
-            if (r < NUM_RINGS && radial_walls[r][s]) {
-                float angle = s * angle_step;
-                float r1 = (r + 1) * RING_SPACING;
-                float r2 = (r + 2) * RING_SPACING;
+    // Draw Radial Walls (Spokes) — one spoke segment per annulus
+    for (int ring = 2; ring < NUM_RINGS; ++ring) {
+        float r1 = ring * RING_SPACING;           // inner arc of this annulus
+        float r2 = (ring + 1) * RING_SPACING;     // outer arc of this annulus
+        for (int s = 0; s < SECTORS_PER_RING; ++s) {
+            if (!radial_walls[ring - 1][s]) continue;  // <-- annulus stored at ring-1
+            float angle = s * angle_step;
 
-                if (wall_buffer_idx < point_buffer.size()) {
-                    point_buffer[wall_buffer_idx][0] = {(lv_coord_t)(CENTER_X + cos(angle) * r1), (lv_coord_t)(CENTER_Y + sin(angle) * r1)};
-                    point_buffer[wall_buffer_idx][1] = {(lv_coord_t)(CENTER_X + cos(angle) * r2), (lv_coord_t)(CENTER_Y + sin(angle) * r2)};
-                    
-                    lv_obj_t *wall = lv_line_create(parent);
-                    lv_line_set_points(wall, point_buffer[wall_buffer_idx].data(), 2);
-                    lv_obj_add_style(wall, &style_wall_circular, 0);
-                    wall_buffer_idx++;
-                    if (animate) lv_timer_handler();
-                }
+            if (wall_buffer_idx < point_buffer.size()) {
+                point_buffer[wall_buffer_idx][0] = {
+                    (lv_coord_t)(CENTER_X + cosf(angle) * r1),
+                    (lv_coord_t)(CENTER_Y + sinf(angle) * r1)
+                };
+                point_buffer[wall_buffer_idx][1] = {
+                    (lv_coord_t)(CENTER_X + cosf(angle) * r2),
+                    (lv_coord_t)(CENTER_Y + sinf(angle) * r2)
+                };
+                lv_obj_t *wall = lv_line_create(parent);
+                lv_line_set_points(wall, point_buffer[wall_buffer_idx].data(), 2);
+                lv_obj_add_style(wall, &style_wall_circular, 0);
+                wall_buffer_idx++;
+                if (animate) lv_timer_handler();
             }
         }
     }
@@ -156,52 +164,38 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
 
 void CircularMaze::carve(int ring, int sector) {
     visited_circular[ring][sector] = true;
-    int dirs[4] = {0, 1, 2, 3}; // 0:Out, 1:In, 2:CW, 3:CCW
-    
-    // Fisher-Yates shuffle to randomize path generation
-    for (int i = 3; i > 0; i--) {
-        int j = random(i + 1);
-        int temp = dirs[i]; dirs[i] = dirs[j]; dirs[j] = temp;
-    }
 
-    // Attempt to visit each neighbor in random order
-    for (int i = 0; i < 4; i++) {
-        int dir = dirs[i];
-        int next_r = ring;
-        int next_s = sector;
+    int dirs[4] = {0,1,2,3}; // 0=Out, 1=In, 2=CW, 3=CCW
+    for (int i = 3; i > 0; --i) { int j = random(i+1); int t = dirs[i]; dirs[i]=dirs[j]; dirs[j]=t; }
 
-        if (dir == 0) next_r++;
-        else if (dir == 1) next_r--;
-        else if (dir == 2) next_s = (sector + 1) % SECTORS_PER_RING;
-        else if (dir == 3) next_s = (sector - 1 + SECTORS_PER_RING) % SECTORS_PER_RING;
-        
-        // Check if the target cell is valid to move to
-        if (next_r >= 0 && next_r <= NUM_RINGS && !visited_circular[next_r][next_s]) {
-            
-            bool wall_was_removed = false;
-            
-            if (dir == 0) { // Moving Outward
-                radial_walls[ring][sector] = false;
-                wall_was_removed = true;
-            } else if (dir == 1) { // Moving Inward
-                radial_walls[next_r][sector] = false;
-                wall_was_removed = true;
-            } else if (dir >= 2) { // Moving Clockwise or Counter-Clockwise
-                // This 'if' respects your design of not carving arcs on the outermost ring.
-                if (ring < NUM_RINGS - 1) {
-                    if (dir == 2) circular_walls[ring][sector] = false; // CW
-                    else          circular_walls[ring][next_s] = false; // CCW
-                    wall_was_removed = true;
-                }
-            }
-            
-            // FIX: Only recurse if a path was actually created.
-            if (wall_was_removed) {
-                carve(next_r, next_s);
-            }
+    for (int k = 0; k < 4; ++k) {
+        int dir = dirs[k];
+        int nr = ring, ns = sector;
+
+        if (dir == 0) nr = ring + 1;                           // Out
+        else if (dir == 1) nr = ring - 1;                      // In
+        else if (dir == 2) ns = (sector + 1) % SECTORS_PER_RING;   // CW
+        else               ns = (sector - 1 + SECTORS_PER_RING) % SECTORS_PER_RING; // CCW
+
+        // Playable rings are 1..NUM_RINGS-1 (exclude the hub at 0)
+        if (nr < 1 || nr >= NUM_RINGS) continue;
+        if (visited_circular[nr][ns]) continue;
+
+        // Knock down the wall BETWEEN (ring,sector) and (nr,ns)
+        if (dir == 0) {                                  // Out → clear outer arc at (ring+1)*spacing
+            circular_walls[ring][sector] = false;
+        } else if (dir == 1) {                           // In → clear inner arc at ring*spacing
+            circular_walls[ring - 1][sector] = false;
+        } else if (dir == 2) {                           // CW → clear spoke at (sector+1)*step across THIS annulus
+            radial_walls[ring - 1][(sector + 1) % SECTORS_PER_RING] = false;
+        } else {                                         // CCW → clear spoke at sector*step across THIS annulus
+            radial_walls[ring - 1][sector] = false;
         }
+
+        carve(nr, ns);
     }
 }
+
 
 
 lv_point_t CircularMaze::randomSpawnCoord() {
