@@ -40,7 +40,7 @@ static Maze* createMaze(MazeType t) {
             return new CircularMaze(8, 12, 12);
         case MazeType::Clock:
         default:
-            // hours, ring spacing (adjust to your MazeClock ctor)
+            // hours, ring spacing
             return new MazeClock(6, 12);
     }
 }

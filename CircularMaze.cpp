@@ -50,8 +50,6 @@ void CircularMaze::generate() {
     // Ball spawns at center for circular mazes
     ball_spawn_px = { (lv_coord_t)CENTER_X, (lv_coord_t)CENTER_Y };
 
-    // Create an exit on the outer perimeter
-    pickExitAndSpawnOpposite();
 }
 
 void CircularMaze::pickExitAndSpawnOpposite() {
@@ -77,11 +75,11 @@ void CircularMaze::pickExitAndSpawnOpposite() {
     //if (midRing < 2) midRing = 2;                       // avoid the empty hub
     //if (midRing > NUM_RINGS - 2) midRing = NUM_RINGS - 2;
     //float spawn_radius = (midRing) * RING_SPACING; // halfway between arcs
-    float spawn_radius = (NUM_RINGS - opposite_sector) * RING_SPACING; // halfway between arcs
+    float spawn_radius = NUM_RINGS * RING_SPACING; // halfway between arcs
 
     ball_spawn_px = {
-        (lv_coord_t)(CENTER_X + cosf(spawn_angle) * spawn_radius),
-        (lv_coord_t)(CENTER_Y + sinf(spawn_angle) * spawn_radius)
+        (lv_coord_t)(CENTER_X + cosf(spawn_angle) * exit_radius),
+        (lv_coord_t)(CENTER_Y + sinf(spawn_angle) * exit_radius)
     };
 }
 
@@ -149,6 +147,9 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
             }
         }
     }
+
+    // Create an exit on the outer perimeter
+    pickExitAndSpawnOpposite();
 
     lv_obj_t* exitObj = lv_obj_create(parent);
     int dot = max(2, RING_SPACING - 2);
