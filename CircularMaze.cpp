@@ -9,26 +9,17 @@ CircularMaze::CircularMaze(int rings, int sectors, int spacing) {
     SECTORS_PER_RING = sectors;
     RING_SPACING = spacing;
     wall_buffer_idx = 0;
-    // 2. Resize the 2D vectors to match the new dimensions
+    // Resize the 2D vectors to match the new dimensions
     radial_walls.resize(NUM_RINGS, std::vector<bool>(SECTORS_PER_RING));
     circular_walls.resize(NUM_RINGS, std::vector<bool>(SECTORS_PER_RING));
     visited_circular.resize(NUM_RINGS, std::vector<bool>(SECTORS_PER_RING));
 
-    // 3. Resize the LVGL point buffer
+    // Resize the LVGL point buffer
     int max_walls = (NUM_RINGS * SECTORS_PER_RING) * 2 + 1;
     point_buffer.resize(max_walls);
-
-    // Initialize ball state for a circular maze if needed
-    //ballX = CENTER_X;
-    //ballY = CENTER_Y;
-    //velX = 0.0f;
-    //velY = 0.0f;
-    //lastMs = millis();
-
 }
 
 void CircularMaze::generate() {
-    // leave extra ring room in the middle and outermost ring has no walls
     for (int r = 0; r < NUM_RINGS; r++) {
         for (int s = 0; s < SECTORS_PER_RING; s++) {
             radial_walls[r][s] = true;
@@ -36,24 +27,20 @@ void CircularMaze::generate() {
             visited_circular[r][s] = false;
         }
     }
-
+    // Set the centermost area of the maze as already visited so the inner area is fully carved out
     for (int s = 0; s < SECTORS_PER_RING; ++s) {
-        visited_circular[0][s] = true;  // hub is not a cell
+        visited_circular[0][s] = true; 
     }
-    //memset(visited_circular, 0, sizeof(visited_circular));
-    spawn_ring = NUM_RINGS - 1;
-    spawn_sector = random(0, SECTORS_PER_RING);
 
-    // Run DFS carve starting from ball spawn point
-    carve(spawn_ring - 1, spawn_sector);
+    // Create an exit on the outer perimeter
+    placeExitAndSpawn();
 
-    // Ball spawns at center for circular mazes
-    ball_spawn_px = { (lv_coord_t)CENTER_X, (lv_coord_t)CENTER_Y };
+    carve(NUM_RINGS - 1, exit_sector);
 
 }
 
-void CircularMaze::pickExitAndSpawnOpposite() {
-    // 1) EXIT on outer perimeter at a random sector (no wall removal)
+void CircularMaze::placeExitAndSpawn() {
+    // EXIT on outer perimeter at a random sector (no wall removal)
     exit_sector = random(0, SECTORS_PER_RING);
 
     const float step = 2.0f * M_PI / SECTORS_PER_RING;
@@ -65,17 +52,9 @@ void CircularMaze::pickExitAndSpawnOpposite() {
         (lv_coord_t)(CENTER_Y + sinf(exit_angle_mid) * exit_radius)
     };
 
-    // 2) SPAWN at diametrically opposite angle, at a safe "between-arcs" radius
+    // SPAWN at diametrically opposite angle, at a safe "between-arcs" radius
     int opposite_sector = (exit_sector + SECTORS_PER_RING / 2) % SECTORS_PER_RING;
     float spawn_angle   = (opposite_sector) * step;
-
-    // Pick a radius centered between arcs to avoid starting overlapped with a wall.
-    // Choose a middle annulus index clamped to playable range.
-    //int midRing = (int)floorf(NUM_RINGS * 0.5f);
-    //if (midRing < 2) midRing = 2;                       // avoid the empty hub
-    //if (midRing > NUM_RINGS - 2) midRing = NUM_RINGS - 2;
-    //float spawn_radius = (midRing) * RING_SPACING; // halfway between arcs
-    float spawn_radius = NUM_RINGS * RING_SPACING; // halfway between arcs
 
     ball_spawn_px = {
         (lv_coord_t)(CENTER_X + cosf(spawn_angle) * exit_radius),
@@ -84,8 +63,6 @@ void CircularMaze::pickExitAndSpawnOpposite() {
 }
 
 void CircularMaze::draw(lv_obj_t* parent, bool animate) {
-    _drawParent = parent;
-    //generate();
     wall_buffer_idx = 0; // Reset buffer index each time we redraw
 
     // LVGL One-time style init for wall lines
@@ -102,7 +79,7 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
         float r1 = ring * RING_SPACING;           // inner arc of this annulus
         float r2 = (ring + 1) * RING_SPACING;     // outer arc of this annulus
         for (int s = 0; s < SECTORS_PER_RING; ++s) {
-            if (!radial_walls[ring - 1][s]) continue;  // <-- annulus stored at ring-1
+            if (!radial_walls[ring - 1][s]) continue;  // <-- annulus stored at ring-1!
             float angle = s * angle_step;
 
             if (wall_buffer_idx < point_buffer.size()) {
@@ -124,7 +101,7 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
     }
     
     // Draw Circular Walls (Arcs)
-    for (int r = 1; r < NUM_RINGS; r++) {
+    for (int r = 1; r < NUM_RINGS; r++) { // no need to draw the first ring since theere are no walls there
         for (int s = 0; s < SECTORS_PER_RING; s++) {
             if (circular_walls[r][s]) {
                 if (wall_buffer_idx < point_buffer.size()) {
@@ -148,9 +125,7 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
         }
     }
 
-    // Create an exit on the outer perimeter
-    pickExitAndSpawnOpposite();
-
+    // Draw exit
     lv_obj_t* exitObj = lv_obj_create(parent);
     int dot = max(2, RING_SPACING - 2);
     lv_obj_set_size(exitObj, dot, dot);
@@ -163,9 +138,11 @@ void CircularMaze::draw(lv_obj_t* parent, bool animate) {
     lv_timer_handler();
 }
 
+// Very similar to the rectangular maze carve
 void CircularMaze::carve(int ring, int sector) {
     visited_circular[ring][sector] = true;
 
+    // Fisher-Yates shuffle 1-liner
     int dirs[4] = {0,1,2,3}; // 0=Out, 1=In, 2=CW, 3=CCW
     for (int i = 3; i > 0; --i) { int j = random(i+1); int t = dirs[i]; dirs[i]=dirs[j]; dirs[j]=t; }
 
@@ -183,13 +160,13 @@ void CircularMaze::carve(int ring, int sector) {
         if (visited_circular[nr][ns]) continue;
 
         // Knock down the wall BETWEEN (ring,sector) and (nr,ns)
-        if (dir == 0) {                                  // Out → clear outer arc at (ring+1)*spacing
+        if (dir == 0) {                                  // Out -> clear outer arc at (ring+1)*spacing
             circular_walls[ring][sector] = false;
-        } else if (dir == 1) {                           // In → clear inner arc at ring*spacing
+        } else if (dir == 1) {                           // In -> clear inner arc at ring*spacing
             circular_walls[ring - 1][sector] = false;
-        } else if (dir == 2) {                           // CW → clear spoke at (sector+1)*step across THIS annulus
+        } else if (dir == 2) {                           // CW -> clear spoke at (sector+1)*step across THIS annulus
             radial_walls[ring - 1][(sector + 1) % SECTORS_PER_RING] = false;
-        } else {                                         // CCW → clear spoke at sector*step across THIS annulus
+        } else {                                         // CCW -> clear spoke at sector*step across THIS annulus
             radial_walls[ring - 1][sector] = false;
         }
 
@@ -198,101 +175,63 @@ void CircularMaze::carve(int ring, int sector) {
 }
 
 
+// Note:
+// Arc normals are radial thus reflect radial component; spoke normals are tangential thus reflect tangential component.
+void CircularMaze::handleCollisions(Ball &ball) {
+    float cx = ball.getX();
+    float cy = ball.getY();
+    const float br = ball.getRadius();
 
-lv_point_t CircularMaze::randomSpawnCoord() {
-    // Gather the list of all open sectors on the outer ring
-    std::vector<int> openSectors;
-    int ring = spawn_ring - 1;  // the ring index just inside the outer boundary
-    for (int s = 0; s < SECTORS_PER_RING; ++s) {
-        if (!radial_walls[ring][s]) {
-            openSectors.push_back(s);
+    // polar coords from ball x and y 
+    float dx = cx - CENTER_X;
+    float dy = cy - CENTER_Y;
+    float r  = sqrtf(dx*dx + dy*dy); // distance from maze center to ball center
+    if (r <= 1e-6f) return;
+
+    float a = atan2f(dy, dx); // angle in radians
+    if (a < 0) a += 2.0f * M_PI; // shifted to [0,  2*Pi]
+
+    //computer current ring and sector ball is currently in
+    const float step = (2.0f * M_PI) / SECTORS_PER_RING;
+    int ring = (int)floorf(r / RING_SPACING);          // polar "ring" index (0..)
+    if (ring < 0) ring = 0;
+    if (ring > NUM_RINGS - 1) ring = NUM_RINGS - 1;
+
+    int sector = (int)floorf(a / step); // sector ball is in
+    if (sector < 0) sector = 0;
+    if (sector > SECTORS_PER_RING - 1) sector = SECTORS_PER_RING - 1;
+
+    // basis (FLOATS, not lv_point_t)
+    float urx = cosf(a),  ury = sinf(a);               // radial unit
+    float utx = -sinf(a), uty = cosf(a);               // tangential unit
+
+    auto dot = [](float x1,float y1,float x2,float y2){ return x1*x2 + y1*y2; };
+
+    bool collided = false;
+    float vx = ball.getVelocityX();
+    float vy = ball.getVelocityY();
+
+    // ---------- ARCS ----------
+    // INNER arc of annulus 'ring' lives at circular_walls[ring-1][*] at radius = ring*spacing
+    if (ring > 1 && circular_walls[ring - 1][sector]) {
+        float arcR = ring * RING_SPACING;
+        float pen  = (arcR + br) - r;   // >0 if ball center is too far inward
+        // if arc is penetrated
+        if (pen > 0.0f) {
+            float new_r = arcR + br; // move ball outward from arc
+            cx = CENTER_X + new_r * urx;
+            cy = CENTER_Y + new_r * ury;
+
+            float v_r = dot(vx, vy, urx, ury); // radial speed
+            float v_t = dot(vx, vy, utx, uty); // tangential speed
+            v_r = -0.25f * v_r;           // damped reflection
+            vx  = v_r*urx + v_t*utx;      // calculate new radially dampened velocity 
+            vy  = v_r*ury + v_t*uty;
+
+            //r = new_r;
+            collided = true;
         }
     }
-
-    // Pick one at random
-    if (openSectors.empty()) {
-        // Should never happen in a perfect maze, but fallback to spawn_sector
-        openSectors.push_back(spawn_sector);
-    }
-    int choice = openSectors[random(0, openSectors.size())];
-
-    // Compute the “middle of the wedge” coords exactly as before
-    const float angle_step = 2.0f * M_PI / SECTORS_PER_RING;
-    float angle  = (choice + 0.5f) * angle_step;
-    float radius = (spawn_ring - 0.5f) * RING_SPACING;
-
-    lv_coord_t x = CENTER_X + (lv_coord_t)(radius * cosf(angle));
-    lv_coord_t y = CENTER_Y + (lv_coord_t)(radius * sinf(angle));
-    return { x, y };
-}
-
-lv_point_t CircularMaze::randomPerimeterCoord() {
-    // half-sector in: avoids landing on a spoke
-    float angle = spawn_sector * (2.0f * M_PI / SECTORS_PER_RING);
-    // half-ring in: avoids landing on an arc
-    float radius = spawn_ring * RING_SPACING;
-
-    lv_coord_t x = CENTER_X + (lv_coord_t)(radius * cos(angle));
-    lv_coord_t y = CENTER_Y + (lv_coord_t)(radius * sin(angle));
-
-    return {x, y};
-}
-
-
-
-void CircularMaze::handleCollisions(Ball &ball) {
-  float cx = ball.getX();
-  float cy = ball.getY();
-  const float br = ball.getRadius();
-
-  // polar
-  float dx = cx - CENTER_X;
-  float dy = cy - CENTER_Y;
-  float r  = sqrtf(dx*dx + dy*dy);
-  if (r <= 1e-6f) return;
-
-  float a = atan2f(dy, dx);
-  if (a < 0) a += 2.0f * M_PI;
-
-  const float step = (2.0f * M_PI) / SECTORS_PER_RING;
-  int ring = (int)floorf(r / RING_SPACING);          // polar "ring" index (0..)
-  if (ring < 0) ring = 0;
-  if (ring > NUM_RINGS - 1) ring = NUM_RINGS - 1;
-
-  int sector = (int)floorf(a / step);
-  if (sector < 0) sector = 0;
-  if (sector > SECTORS_PER_RING - 1) sector = SECTORS_PER_RING - 1;
-
-  // basis (FLOATS, not lv_point_t)
-  float urx = cosf(a),  ury = sinf(a);               // radial unit
-  float utx = -sinf(a), uty = cosf(a);               // tangential unit
-
-  auto dot = [](float x1,float y1,float x2,float y2){ return x1*x2 + y1*y2; };
-
-  bool collided = false;
-  float vx = ball.getVelocityX();
-  float vy = ball.getVelocityY();
-
-  // ---------- ARCS ----------
-  // INNER arc of annulus 'ring' lives at circular_walls[ring-1][*] at radius = ring*spacing
-  if (ring > 1 && circular_walls[ring - 1][sector]) {
-    float arcR = ring * RING_SPACING;
-    float pen  = (arcR + br) - r;   // >0 if ball center is too far inward
-    if (pen > 0.0f) {
-      float new_r = arcR + br;
-      cx = CENTER_X + new_r * urx;
-      cy = CENTER_Y + new_r * ury;
-
-      float v_r = dot(vx, vy, urx, ury);
-      float v_t = dot(vx, vy, utx, uty);
-      v_r = -0.25f * v_r;           // damped reflection
-      vx  = v_r*urx + v_t*utx;
-      vy  = v_r*ury + v_t*uty;
-
-      r = new_r;
-      collided = true;
-    }
-  }
 
   // OUTER arc of annulus 'ring' lives at circular_walls[ring][*] at radius = (ring+1)*spacing
   if (ring > 0 && ring < NUM_RINGS && circular_walls[ring][sector]) {
@@ -309,7 +248,7 @@ void CircularMaze::handleCollisions(Ball &ball) {
       vx  = v_r*urx + v_t*utx;
       vy  = v_r*ury + v_t*uty;
 
-      r = new_r;
+      //r = new_r;
       collided = true;
     }
   }
@@ -322,22 +261,25 @@ void CircularMaze::handleCollisions(Ball &ball) {
 
     auto resolveSpoke = [&](int spokeS) {
       if (!radial_walls[ring - 1][spokeS]) return;
-      float spokeA = spokeS * step;
-      float dA = a - spokeA;
+      float spokeA = spokeS * step; // spkoe angle
+      float dA = a - spokeA; 
       // perpendicular distance to the spoke line through origin
       float perp = fabsf(r * sinf(dA));
       bool insideSpan = (r >= rInner - br) && (r <= rOuter + br);
       if (!insideSpan) return;
-      if (perp <= br) {
+      if (perp <= br) { // if ball intersects spoke
         // push along tangent to achieve perp == br
-        float sign = (sinf(dA) >= 0.f) ? 1.f : -1.f;
+        float sign = (sinf(dA) >= 0.f) ? 1.f : -1.f; // Are we hitting the CW or CCW spoke
         float need = (br - perp);
         cx += sign * utx * need;
         cy += sign * uty * need;
 
         // recompute basis
-        dx = cx - CENTER_X; dy = cy - CENTER_Y; r = sqrtf(dx*dx + dy*dy);
-        a  = atan2f(dy, dx); if (a < 0) a += 2.0f*M_PI;
+        dx = cx - CENTER_X;
+        dy = cy - CENTER_Y;
+        r = sqrtf(dx*dx + dy*dy);
+        a  = atan2f(dy, dx);
+        if (a < 0) a += 2.0f*M_PI;
         urx = cosf(a);  ury = sinf(a);
         utx = -sinf(a); uty = cosf(a);
 

@@ -17,6 +17,16 @@ public:
     Ball(lv_obj_t* parent, float start_x, float start_y, float radius);
 
     /**
+     * @brief Destructor of Ball object.
+    */
+    ~Ball() {
+        if (obj) {
+            lv_obj_del(obj);
+            obj = nullptr;
+        }
+    }
+    
+    /**
      * @brief Applies forces from the IMU to update the ball's velocity.
      * @param roll The roll angle (tilt) in degrees.
      * @param pitch The pitch angle (tilt) in degrees.

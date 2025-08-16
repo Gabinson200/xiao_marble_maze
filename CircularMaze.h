@@ -38,11 +38,22 @@ public:
      */
     virtual void draw(lv_obj_t* parent, bool animate) override;
 
+    // Getters for the ball and exit spawn locations
     lv_point_t getBallSpawnPixel() const override { return ball_spawn_px; }
     lv_point_t getExitPixel() const override { return exit_px; }
 
+    /**
+     * @brief Gets ball position, simple collision check with nearby walls, moves ball outside of collision area, "bouncess" off wall 
+     * @param ball Ball object
+     */
     virtual void handleCollisions(Ball& ball) override;
 
+    /**
+     * @brief Subsamples ball movement and calls collision check on suub-distances so we dont accidentally "tunnel"
+     * @param ball Ball obj
+     * @param max_step_px Maximum pixels length a substep can be
+     * @param max_substeps Maximum number of substeps a movement reading can be divided into
+     */
     virtual void stepBallWithCollisions(Ball& ball,
                                     float max_step_px = -1.0f,
                                     uint8_t max_substeps = 32) override;
@@ -76,21 +87,12 @@ protected:
      */
     void carve(int ring, int sector);
 
-    /**
-     * @brief Helper: returns pixel coords of the single carved entrance.
-     * @return Pixel coordinates on the perimeter.
+    
+     /**
+     * @brief Picks exit on perimeter, sets opposite  coordinate as spawn,
      */
-    lv_point_t randomPerimeterCoord();
+    void placeExitAndSpawn();
 
-    void pickExitAndSpawnOpposite();
-
-    /**
-     * @brief Choose a random start coordinate among outer-ring openings.
-     * @return Pixel coordinates centered in the chosen wedge.
-     */
-    lv_point_t randomSpawnCoord();
-
-    void initDebugStyles();
 
     // Pre-allocated buffers for LVGL line drawing (two endpoints or arc points)
     //static constexpr int MAX_TOTAL_WALLS = (NUM_RINGS * SECTORS_PER_RING) * 2 + 1;
@@ -99,10 +101,6 @@ protected:
     //static lv_point_t point_buffer[MAX_TOTAL_WALLS][MAX_POINTS_PER_LINE];
     int wall_buffer_idx; ///< Next free index in point_buffer
 
-    // LVGL debug objects:
-    lv_style_t _dbgStyleTest, _dbgStyleHit;
-    lv_obj_t*  _dbgLabel = nullptr;
-    lv_obj_t* _drawParent = nullptr;
   
 };
 

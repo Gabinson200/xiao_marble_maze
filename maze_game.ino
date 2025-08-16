@@ -34,15 +34,39 @@ static Maze* createMaze(MazeType t) {
     switch (t) {
         case MazeType::Rectangular:
             // rows, cols, cell_size, offset
-            return new RectangularMaze(8, 8, 20, 40);
+            // Given we usually want a centered square maze of size nxn we can calculate cell size as 
+            // cell size = [screen size (240) - 2*offset] / n or just 160 / n
+            return new RectangularMaze(10, 10, 16, 40);
         case MazeType::Circular:
             // rings, sectors, spacing
-            return new CircularMaze(8, 12, 12);
+            // if we want n rings we can caulculate rign spacing as
+            // [screen size (240) / 2] / n ==>  120/n - 1 (for some extra space for the last ring)
+            // all the way down until ring spacing == 7
+            return new CircularMaze(10, 16, 11);
         case MazeType::Clock:
         default:
             // hours, ring spacing
             return new MazeClock(6, 12);
     }
+}
+
+static void regenerateCurrentMaze() {
+    // Delete ball first
+    if (ball) { delete ball; ball = nullptr; }
+
+    // Clear old maze visuals from the screen
+    lv_obj_t* screen = lv_scr_act();
+    lv_obj_clean(screen);
+
+    // Recreate the same type of maze
+    if (maze) { delete maze; maze = nullptr; }
+    maze = createMaze(MazeChoice);
+    maze->generate();
+    maze->draw(screen, /*animate=*/true);
+
+    // Spawn a new ball at the new maze’s spawn
+    lv_point_t spawn = maze->getBallSpawnPixel();
+    ball = new Ball(screen, spawn.x, spawn.y, /*radius=*/5.0f);
 }
 
 void setup() {
@@ -109,6 +133,16 @@ void loop() {
             /*max_substeps=*/ 24                         // cap for performance
         );
         ball->draw();
+    }
+
+    // check if exit is reached
+    const float tol = ball->getRadius() + 4.0f;
+
+    if (maze->isAtExit(ball->getX(), ball->getY(), tol)) {
+        regenerateCurrentMaze();
+        // optional: brief pause to avoid instant retrigger
+        delay(40);
+        return; // skip the rest of this loop iteration
     }
 
     lv_timer_handler();

@@ -11,15 +11,16 @@ RectangularMaze::RectangularMaze(int cols, int rows, int cell_size, int offset) 
     horiz_walls.resize(ROWS + 1, std::vector<bool>(COLS));
     vert_walls.resize(ROWS, std::vector<bool>(COLS + 1));
     visited_cells.resize(ROWS, std::vector<bool>(COLS));
-
-    // 3. Resize the LVGL point buffer
     int MAX_WALLS = (ROWS + 1) * COLS + ROWS * (COLS + 1);
+
+    // Resize the LVGL point buffer
     wall_points.resize(MAX_WALLS);
 }
 
 
 
 void RectangularMaze::generate() {
+    // Note the exclusive / inclusive less than symbols, this allows us to generate the outermost edges of the maze
     for (int r = 0; r <= ROWS; ++r) {
         for (int c = 0; c < COLS; ++c) horiz_walls[r][c] = true;
     }
@@ -32,8 +33,10 @@ void RectangularMaze::generate() {
         std::fill(row.begin(), row.end(), false);
     }
 
-    carve(random(COLS), random(ROWS));
+    //get location of ball and exit
     placeExitAndSpawn();
+
+    carve(random(COLS), random(ROWS));
 }
 
 
@@ -89,6 +92,7 @@ void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
         }
     }
 
+
     // Draw Exit Cell (red)
     lv_obj_t* exitObj = lv_obj_create(parent);
     lv_obj_set_size(exitObj, CELL_SIZE-2, CELL_SIZE-2);
@@ -96,7 +100,6 @@ void RectangularMaze::draw(lv_obj_t* parent, bool animate) {
     lv_obj_set_style_bg_color(exitObj, lv_color_make(255, 0, 0), 0);
     lv_obj_set_style_border_width(exitObj, 0, 0);
     lv_obj_set_style_radius(exitObj, 0, 0); // makes it square
-    // place the ball on the direct opposite side of the maze where the exit is placed.
 
     // Final actual draw to screen
     lv_timer_handler();
@@ -120,6 +123,7 @@ void RectangularMaze::carve(int r, int c) {
     int d = dirs[i];
     int nr = r + dr[d];
     int nc = c + dc[d];
+    // checks in random order around cell if neighboring cells are visited, knocks down wall, recurses
     if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && !visited_cells[nr][nc]) {
       if (d < 2) horiz_walls[max(r,nr)][c] = false;
       else if (d == 2) vert_walls[r][c] = false;
@@ -127,21 +131,6 @@ void RectangularMaze::carve(int r, int c) {
       carve(nr, nc);
     }
   }
-}
-
-
-
-lv_point_t RectangularMaze::randomPerimeterCoord() {
-    int P = 2*COLS + 2*ROWS - 4;
-    int idx = random(0, P);
-    int r, c;
-    if      (idx < COLS)        { r = 0;       c = idx;           }
-    else if ((idx -= COLS) < ROWS-2) { r = 1+idx;  c = COLS-1;      }
-    else if ((idx -= ROWS-2) < COLS) { r = ROWS-1; c = COLS-1-idx; }
-    else                           { idx -= COLS; r = ROWS-2-idx; c = 0; }
-    // return in pixels, with OFFSET
-    return { (lv_coord_t)(c*CELL_SIZE + OFFSET),
-             (lv_coord_t)(r*CELL_SIZE + OFFSET) };
 }
 
 
@@ -158,8 +147,9 @@ void RectangularMaze::placeExitAndSpawn() {
     spawn_c = (COLS-1) - exit_c;
 
     // Pixel coords
+    // Note: lvgl zero index (0,0) is top left corner 
     exit_px = { (lv_coord_t)(exit_c*CELL_SIZE + OFFSET),
-                (lv_coord_t)(exit_r*CELL_SIZE + OFFSET) };
+                (lv_coord_t)(exit_r*CELL_SIZE + OFFSET)};
 
     ball_spawn_px = { (lv_coord_t)(spawn_c*CELL_SIZE + OFFSET + CELL_SIZE/2),
                       (lv_coord_t)(spawn_r*CELL_SIZE + OFFSET + CELL_SIZE/2) };
@@ -214,6 +204,7 @@ void RectangularMaze::stepBallWithCollisions(Ball& ball,
     // Choose a safe step length: default to half the radius
     if (max_step_px <= 0.0f) max_step_px = ball.getRadius() * 0.5f;
 
+    // Determine steps based on direction of greatest change
     float max_axis = fabsf(dx) > fabsf(dy) ? fabsf(dx) : fabsf(dy);
     int steps = (int)ceilf(max_axis / max_step_px);
     if (steps < 1) steps = 1;
@@ -226,4 +217,19 @@ void RectangularMaze::stepBallWithCollisions(Ball& ball,
         ball.translate(sx, sy);
         handleCollisions(ball);  // clamp/reflect if we touched any wall
     }
+}
+
+
+// Might be a better random periemter generatro since only one random call is made
+lv_point_t RectangularMaze::randomPerimeterCoord() {
+    int P = 2*COLS + 2*ROWS - 4;
+    int idx = random(0, P);
+    int r, c;
+    if      (idx < COLS)        { r = 0;       c = idx;           }
+    else if ((idx -= COLS) < ROWS-2) { r = 1+idx;  c = COLS-1;      }
+    else if ((idx -= ROWS-2) < COLS) { r = ROWS-1; c = COLS-1-idx; }
+    else                           { idx -= COLS; r = ROWS-2-idx; c = 0; }
+    // return in pixels, with OFFSET
+    return { (lv_coord_t)(c*CELL_SIZE + OFFSET),
+             (lv_coord_t)(r*CELL_SIZE + OFFSET) };
 }

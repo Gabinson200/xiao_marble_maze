@@ -22,18 +22,34 @@ public:
      */
     virtual void generate() override;
 
-
+    /**
+     * @brief Draws the maze and intial ball / exit positions
+     * @param parent LVGL screen to draw to
+     * @param animate boolean, set true if you want to see maze drawing animation
+     */
     virtual void draw(lv_obj_t* parent, bool animate) override;
 
+    /**
+     * @brief Gets ball position, simple collision check with nearby walls, moves ball outside of collision area, "bouncess" off wall 
+     * @param ball Ball object
+     */
     virtual void handleCollisions(Ball& ball) override;
 
+    /**
+     * @brief Subsamples ball movement and calls collision check on suub-distances so we dont accidentally "tunnel"
+     * @param ball Ball obj
+     * @param max_step_px Maximum pixels length a substep can be
+     * @param max_substeps Maximum number of substeps a movement reading can be divided into
+     */
     virtual void stepBallWithCollisions(Ball& ball,
                                     float max_step_px = -1.0f,
                                     uint8_t max_substeps = 32) override;
 
+    // Getters for the ball and exit spawn locations
     lv_point_t getBallSpawnPixel() const override { return ball_spawn_px; }
 
-    lv_point_t getExitPixel() const override { return exit_px; }
+    // note we return the center pixel of the exit box 
+    lv_point_t getExitPixel() const override { return {exit_px.x + CELL_SIZE/2, exit_px.y + CELL_SIZE/2}; }
 
 private:
     int COLS; // = 8;
@@ -62,11 +78,15 @@ private:
     void carve(int r, int c);
 
     /**
-     * @brief Returns a random lv_poimt_t that is on the perimeter of the maze.
+     * @brief Picks exit on perimeter, sets opposite  coordinate as spawn
+     */
+    void placeExitAndSpawn(); 
+
+    /**
+     * @brief Returns a random lv_poimt_t that is on the perimeter of the maze NOT CURRENTLY USED
      */
     lv_point_t randomPerimeterCoord();
 
-    void placeExitAndSpawn();  // picks exit on perimeter, opens wall, sets opposite spawn
 };
 
 #endif // RECTANGULAR_MAZE_H
